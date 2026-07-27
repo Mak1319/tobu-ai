@@ -1,0 +1,9 @@
+[project]
+name = "imbbox2-agent"
+version = "0.1.0"
+description = "LangGraph backend for imbbox2"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.uv]
+dev-dependencies = []

@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { Suspense, useState, useTransition } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { resetPasswordAction } from "@/lib/auth/actions"
+import { hashPassword } from "@/lib/auth/argon2"
 import { Button } from "@/components/ui/button"
 import {
   Field,
@@ -15,16 +16,27 @@ import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function ResetPasswordPage() {
+  // useSearchParams() requires a Suspense boundary for static prerender in Next 16.
+  return (
+    <Suspense fallback={<div className="flex min-h-svh items-center justify-center p-6">Loading…</div>}>
+      <ResetPasswordForm />
+    </Suspense>
+  )
+}
+
+function ResetPasswordForm() {
   const sp = useSearchParams()
   const router = useRouter()
   const token = sp.get("token") ?? ""
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
     const fd = new FormData(e.currentTarget)
+    const rawPassword = String(fd.get("password") ?? "")
+    fd.set("password", await hashPassword(rawPassword, token))
     fd.set("token", token)
     startTransition(async () => {
       const result = await resetPasswordAction(null, fd)

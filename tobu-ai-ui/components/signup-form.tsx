@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { signupAction } from "@/lib/auth/actions"
+import { hashPassword } from "@/lib/auth/argon2"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -26,11 +27,14 @@ export function SignupForm({
     const [info, setInfo] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
 
-    function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault()
         setError(null)
         setInfo(null)
         const fd = new FormData(e.currentTarget)
+        const email = String(fd.get("email") ?? "")
+        const rawPassword = String(fd.get("password") ?? "")
+        fd.set("password", await hashPassword(rawPassword, email))
         startTransition(async () => {
             const result = await signupAction(null, fd)
             if (result.ok) {

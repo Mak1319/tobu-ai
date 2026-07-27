@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { use, useState } from "react"
 import WizardLayout from "../_wizard/layout"
 import Step1Page from "../_wizard/step-1/page"
 import Step2Layout from "../_wizard/step-2/layout"
@@ -13,6 +13,7 @@ export default function ChatDetailPage({
 }: {
   params: Promise<{ chatId: string }>
 }) {
+  const { chatId } = use(params)
   const [currentStep, setCurrentStep] = useState(1)
   const [currentSubstep, setCurrentSubstep] = useState(1)
 
@@ -22,7 +23,7 @@ export default function ChatDetailPage({
 
   const renderStep = () => {
     if (currentStep === 1) {
-      return <Step1Page onUploadComplete={handleUploadComplete} />
+      return <Step1Page chatId={chatId} onUploadComplete={handleUploadComplete} />
     }
     if (currentStep === 2) {
       return (

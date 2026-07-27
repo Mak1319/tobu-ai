@@ -1,4 +1,4 @@
-"use client";
+import "server-only"
 
 import * as React from "react";
 
@@ -28,131 +28,103 @@ import {
     MapsIcon,
     CommandIcon,
 } from "@hugeicons/core-free-icons";
+import { getSession } from "@/lib/auth";
+import { connectToDatabase, User } from "@/lib/db/models";
 
-const data = {
-    user: {
-        name: "shadcn",
-        email: "m@example.com",
-        avatar: "/avatars/shadcn.jpg",
+const navMain = [
+    {
+        title: "Playground",
+        url: "#",
+        icon: <HugeiconsIcon icon={ComputerTerminalIcon} strokeWidth={2} />,
+        isActive: true,
+        items: [
+            { title: "History", url: "#" },
+            { title: "Starred", url: "#" },
+            { title: "Settings", url: "#" },
+        ],
     },
-    navMain: [
-        {
-            title: "Playground",
-            url: "#",
-            icon: <HugeiconsIcon icon={ComputerTerminalIcon} strokeWidth={2} />,
-            isActive: true,
-            items: [
-                {
-                    title: "History",
-                    url: "#",
-                },
-                {
-                    title: "Starred",
-                    url: "#",
-                },
-                {
-                    title: "Settings",
-                    url: "#",
-                },
-            ],
-        },
-        {
-            title: "Models",
-            url: "#",
-            icon: <HugeiconsIcon icon={RoboticIcon} strokeWidth={2} />,
-            items: [
-                {
-                    title: "Genesis",
-                    url: "#",
-                },
-                {
-                    title: "Explorer",
-                    url: "#",
-                },
-                {
-                    title: "Quantum",
-                    url: "#",
-                },
-            ],
-        },
-        {
-            title: "Documentation",
-            url: "#",
-            icon: <HugeiconsIcon icon={BookOpen02Icon} strokeWidth={2} />,
-            items: [
-                {
-                    title: "Introduction",
-                    url: "#",
-                },
-                {
-                    title: "Get Started",
-                    url: "#",
-                },
-                {
-                    title: "Tutorials",
-                    url: "#",
-                },
-                {
-                    title: "Changelog",
-                    url: "#",
-                },
-            ],
-        },
-        {
-            title: "Settings",
-            url: "#",
-            icon: <HugeiconsIcon icon={Settings05Icon} strokeWidth={2} />,
-            items: [
-                {
-                    title: "General",
-                    url: "#",
-                },
-                {
-                    title: "Team",
-                    url: "#",
-                },
-                {
-                    title: "Billing",
-                    url: "#",
-                },
-                {
-                    title: "Limits",
-                    url: "#",
-                },
-            ],
-        },
-    ],
-    navSecondary: [
-        {
-            title: "Support",
-            url: "#",
-            icon: <HugeiconsIcon icon={ChartRingIcon} strokeWidth={2} />,
-        },
-        {
-            title: "Feedback",
-            url: "#",
-            icon: <HugeiconsIcon icon={SentIcon} strokeWidth={2} />,
-        },
-    ],
-    projects: [
-        {
-            name: "Design Engineering",
-            url: "#",
-            icon: <HugeiconsIcon icon={CropIcon} strokeWidth={2} />,
-        },
-        {
-            name: "Sales & Marketing",
-            url: "#",
-            icon: <HugeiconsIcon icon={PieChartIcon} strokeWidth={2} />,
-        },
-        {
-            name: "Travel",
-            url: "#",
-            icon: <HugeiconsIcon icon={MapsIcon} strokeWidth={2} />,
-        },
-    ],
-};
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+    {
+        title: "Models",
+        url: "#",
+        icon: <HugeiconsIcon icon={RoboticIcon} strokeWidth={2} />,
+        items: [
+            { title: "Genesis", url: "#" },
+            { title: "Explorer", url: "#" },
+            { title: "Quantum", url: "#" },
+        ],
+    },
+    {
+        title: "Documentation",
+        url: "#",
+        icon: <HugeiconsIcon icon={BookOpen02Icon} strokeWidth={2} />,
+        items: [
+            { title: "Introduction", url: "#" },
+            { title: "Get Started", url: "#" },
+            { title: "Tutorials", url: "#" },
+            { title: "Changelog", url: "#" },
+        ],
+    },
+    {
+        title: "Settings",
+        url: "#",
+        icon: <HugeiconsIcon icon={Settings05Icon} strokeWidth={2} />,
+        items: [
+            { title: "General", url: "#" },
+            { title: "Team", url: "#" },
+            { title: "Billing", url: "#" },
+            { title: "Limits", url: "#" },
+        ],
+    },
+];
+
+const navSecondary = [
+    {
+        title: "Support",
+        url: "#",
+        icon: <HugeiconsIcon icon={ChartRingIcon} strokeWidth={2} />,
+    },
+    {
+        title: "Feedback",
+        url: "#",
+        icon: <HugeiconsIcon icon={SentIcon} strokeWidth={2} />,
+    },
+];
+
+const projects = [
+    {
+        name: "Design Engineering",
+        url: "#",
+        icon: <HugeiconsIcon icon={CropIcon} strokeWidth={2} />,
+    },
+    {
+        name: "Sales & Marketing",
+        url: "#",
+        icon: <HugeiconsIcon icon={PieChartIcon} strokeWidth={2} />,
+    },
+    {
+        name: "Travel",
+        url: "#",
+        icon: <HugeiconsIcon icon={MapsIcon} strokeWidth={2} />,
+    },
+];
+
+export async function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+    const session = await getSession();
+    if (!session.userId) return null;
+
+    await connectToDatabase();
+    const user = await User.findById(session.userId, {
+        name: 1,
+        email: 1,
+        image: 1,
+    }).lean<{ name: string; email: string; image?: string } | null>();
+
+    // Stale cookie pointing at a deleted account — fall back to a neutral
+    // placeholder so the sidebar doesn't crash.
+    const display = user
+        ? { name: user.name, email: user.email, avatar: user.image ?? "" }
+        : { name: "Unknown user", email: "", avatar: "" };
+
     return (
         <Sidebar variant="inset" {...props}>
             <SidebarHeader>
@@ -179,12 +151,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </SidebarMenu>
             </SidebarHeader>
             <SidebarContent>
-                <NavMain items={data.navMain} />
-                <NavProjects projects={data.projects} />
-                <NavSecondary items={data.navSecondary} className="mt-auto" />
+                <NavMain items={navMain} />
+                <NavProjects projects={projects} />
+                <NavSecondary items={navSecondary} className="mt-auto" />
             </SidebarContent>
             <SidebarFooter>
-                <NavUser user={data.user} />
+                <NavUser user={display} />
             </SidebarFooter>
         </Sidebar>
     );

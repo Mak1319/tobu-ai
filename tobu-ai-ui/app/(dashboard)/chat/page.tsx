@@ -30,7 +30,9 @@ function EmptyState({ onNewChat }: { onNewChat: () => void }) {
                         className="size-8 text-muted-foreground"
                     />
                 </div>
-                <h2 className="text-lg font-semibold">You have start a chat</h2>
+                <h2 className="text-lg font-semibold">
+                    You have to start a chat
+                </h2>
                 <p className="text-muted-foreground max-w-xs">
                     Start a new conversation to get started with Tobu AI
                 </p>

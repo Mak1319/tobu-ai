@@ -7,7 +7,6 @@ import { generate, generateURI, verifySync } from "otplib"
 import QRCode from "qrcode"
 import { connectToDatabase, User, Account, Preferences, EmailToken, Session } from "@/lib/db/models"
 import { getSession } from "./session"
-import { hashPassword, verifyPassword } from "./password"
 import { createDbSession, revokeDbSession } from "./tokens"
 import { sendMail } from "./mail"
 import { issueEmailToken, consumeEmailToken } from "./email-helpers"
@@ -42,7 +41,7 @@ function generateSecretCompat(): string {
 const signupSchema = z.object({
   name: z.string().trim().min(1).max(80),
   email: z.string().trim().toLowerCase().email(),
-  password: z.string().min(8).max(200),
+  password: z.string().min(8).max(500),
 })
 
 export async function signupAction(_: ActionResult | null, formData: FormData): Promise<ActionResult> {
@@ -60,7 +59,7 @@ export async function signupAction(_: ActionResult | null, formData: FormData): 
   const exists = await User.findOne({ emailNormalized }).lean()
   if (exists) return err("An account with that email already exists.")
 
-  const passwordHash = await hashPassword(password)
+  // password is already an argon2 hash produced client-side
   const prefs = await Preferences.create({})
   const user = await User.create({
     name,
@@ -70,7 +69,7 @@ export async function signupAction(_: ActionResult | null, formData: FormData): 
     preferences: [prefs._id],
     accounts: [],
   })
-  await Account.create({ userId: user._id, provider: "email", passwordHash })
+  await Account.create({ userId: user._id, provider: "email", passwordHash: password })
 
   // issue verification email
   const raw = await issueEmailToken(user._id, "verify-email")
@@ -92,7 +91,7 @@ export async function signupAction(_: ActionResult | null, formData: FormData): 
 // ---------- login ----------
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
-  password: z.string().min(1),
+  password: z.string().min(1).max(500),
 })
 
 export async function loginAction(_: ActionResult | null, formData: FormData): Promise<ActionResult> {
@@ -109,8 +108,7 @@ export async function loginAction(_: ActionResult | null, formData: FormData): P
   const account = await Account.findOne({ userId: user._id, provider: "email" })
   if (!account?.passwordHash) return err("This account uses a different sign-in method.")
 
-  const ok = await verifyPassword(parsed.data.password, account.passwordHash)
-  if (!ok) return err("Invalid email or password.")
+  if (parsed.data.password !== account.passwordHash) return err("Invalid email or password.")
 
   if (user.twoFactor?.enabled) {
     const session = await getSession()
@@ -179,7 +177,7 @@ export async function forgotPasswordAction(_: ActionResult | null, formData: For
 // ---------- reset password ----------
 const resetSchema = z.object({
   token: z.string().min(10),
-  password: z.string().min(8).max(200),
+  password: z.string().min(8).max(500),
 })
 
 export async function resetPasswordAction(_: ActionResult | null, formData: FormData): Promise<ActionResult> {
@@ -193,10 +191,10 @@ export async function resetPasswordAction(_: ActionResult | null, formData: Form
   if (!row) return err("This reset link is invalid or has expired.")
 
   await connectToDatabase()
-  const newHash = await hashPassword(parsed.data.password)
+  // password is already an argon2 hash produced client-side
   await Account.updateOne(
     { userId: row.userId, provider: "email" },
-    { $set: { passwordHash: newHash } },
+    { $set: { passwordHash: parsed.data.password } },
   )
   // Invalidate all sessions for safety
   await User.updateOne({ _id: row.userId }, { $set: { sessions: [] } })
@@ -221,18 +219,18 @@ export type TwoFactorSetup = { ok: true; otpauthUrl: string; qrDataUrl: string }
 
 export async function startTwoFactorSetupAction(): Promise<TwoFactorSetup> {
   const session = await getSession()
-  if (!session.userId) return err("Not signed in.")
+  if (!session.userId) return { ok: false, error: "Not signed in." }
   await connectToDatabase()
   const user = await User.findById(session.userId)
-  if (!user) return err("User not found.")
-  if (user.twoFactor?.enabled) return err("Two-factor is already enabled.")
+  if (!user) return { ok: false, error: "User not found." }
+  if (user.twoFactor?.enabled) return { ok: false, error: "Two-factor is already enabled." }
 
   const secret = generateSecretCompat()
   await User.updateOne(
     { _id: user._id },
     { $set: { "twoFactor.secret": secret, "twoFactor.enabled": false } },
   )
-  const otpauthUrl = generateURI({ strategy: "totp", label: `Tobu AI:${user.email}`, secret })
+  const otpauthUrl = generateURI({ strategy: "totp", issuer: "Tobu AI", label: `Tobu AI:${user.email}`, secret })
   const qrDataUrl = await QRCode.toDataURL(otpauthUrl)
   return { ok: true, otpauthUrl, qrDataUrl }
 }

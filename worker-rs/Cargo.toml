@@ -1,0 +1,69 @@
+[package]
+name = "worker-rs"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+description = "Document-processing worker: listens to MinIO uploads, dedupes by SHA-256, runs docling-rs to produce Markdown."
+license = "MIT"
+
+[[bin]]
+name = "worker-rs"
+path = "src/main.rs"
+
+[lib]
+name = "worker_rs"
+path = "src/lib.rs"
+
+[dependencies]
+# Docling PDF pipeline (includes pdfium + ONNX runtime internally).
+docling = { version = "0.49", default-features = false, features = ["pdf", "fetch-images"] }
+
+# Async runtime.
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "sync", "time"] }
+
+# AWS SDK for S3 (works against MinIO with force_path_style).
+aws-config = { version = "1", default-features = false, features = ["behavior-version-latest", "rustls", "rt-tokio"] }
+aws-sdk-s3 = { version = "1", default-features = false, features = ["behavior-version-latest", "rustls", "rt-tokio"] }
+aws-credential-types = "1"
+
+# Reqwest for MinIO's listenBucketNotification admin endpoint (not in AWS SDK).
+reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls"] }
+
+# MongoDB driver. Use the default bson-3 stack.
+mongodb = { version = "3", default-features = true }
+bson = { version = "2", features = ["chrono-0_4"] }
+
+# SHA-256 streaming hasher.
+sha2 = "0.10"
+
+# Logging.
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+
+# Error handling.
+anyhow = "1"
+thiserror = "1"
+
+# Serde.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Time.
+chrono = { version = "0.4", features = ["serde"] }
+
+# Misc.
+futures-util = "0.3"
+uuid = { version = "1", features = ["v4"] }
+hex = "0.4"
+once_cell = "1"
+async-trait = "0.1"
+tempfile = "3"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

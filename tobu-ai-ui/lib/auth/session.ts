@@ -1,6 +1,6 @@
 import "server-only"
 import { cookies } from "next/headers"
-import { getIronSession, type SessionOptions } from "iron-session"
+import { getIronSession, type IronSession, type SessionOptions } from "iron-session"
 
 export type AuthSession = {
   userId?: string
@@ -28,7 +28,7 @@ export const sessionOptions: SessionOptions = {
   },
 }
 
-export async function getSession(): Promise<AuthSession> {
+export async function getSession(): Promise<IronSession<AuthSession>> {
   const cookieStore = await cookies()
   return getIronSession<AuthSession>(cookieStore, sessionOptions)
 }
