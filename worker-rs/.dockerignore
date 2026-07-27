@@ -1,7 +1,0 @@
-/target
-**/*.rs.bk
-models/
-.pdfium/
-.env
-.env.*
-!.env.example
