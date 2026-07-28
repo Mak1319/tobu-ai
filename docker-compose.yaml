@@ -1,107 +1,75 @@
-version: "3.8"
+# services:
+#     mongodb:
+#         image: mongo:latest
+#         container_name: mongodb
+#         restart: unless-stopped
+#         environment:
+#             MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+#             MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+#             MONGO_INITDB_DATABASE: ${MONGO_DB}
+#         ports:
+#             - "${MONGO_PORT:-27017}:27017"
+#         volumes:
+#             - mongodb_data:/data/db
+#         networks:
+#             - imbbox-net
 
-services:
-    mongodb:
-        image: mongo:8.0.4
-        container_name: imbbox2-mongodb
-        restart: unless-stopped
-        ports:
-            - "27017:27017"
-        environment:
-            MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
-            MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
-        volumes:
-            - mongodb_data:/data/db
-        networks:
-            - imbbox2-network
+#     redis:
+#         image: redis/redis-stack-server:latest
+#         container_name: redis
+#         restart: unless-stopped
+#         environment:
+#             REDIS_ARGS: "--requirepass ${REDIS_PASSWORD}"
+#         ports:
+#             - "${REDIS_PORT:-6379}:6379"
+#         volumes:
+#             - redis_data:/data
+#         networks:
+#             - imbbox-net
 
-    minio:
-        image: minio/minio:latest
-        container_name: imbbox2-minio
-        restart: unless-stopped
-        ports:
-            - "9000:9000"
-            - "9001:9001"
-        environment:
-            MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-            MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-        volumes:
-            - ./minio-storage:/data
-        command: server /data --console-address ":9001"
-        networks:
-            - imbbox2-network
+#     minio:
+#         image: minio/minio:latest
+#         container_name: minio
+#         restart: unless-stopped
+#         command: server /data --console-address ":9001"
+#         environment:
+#             MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+#             MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+#         ports:
+#             - "${MINIO_API_PORT:-9000}:9000"
+#             - "${MINIO_CONSOLE_PORT:-9001}:9001"
+#         volumes:
+#             - minio_data:/data
+#         networks:
+#             - imbbox-net
 
-    minio-init:
-        image: minio/mc:latest
-        container_name: imbbox2-minio-init
-        depends_on:
-            - minio
-        entrypoint: /bin/sh
-        command:
-            - -c
-            - |
-                echo "Waiting for MinIO to be ready..."
-                sleep 5
-                mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}
-                echo "Creating buckets..."
-                mc mb myminio/documents-bucket --ignore-existing
-                mc mb myminio/processed-documents --ignore-existing
-                echo "Buckets created successfully!"
-        networks:
-            - imbbox2-network
+#     minio-init:
+#         image: minio/mc:latest
+#         container_name: minio-init
+#         depends_on:
+#             - minio
+#             - redis
+#         environment:
+#             MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+#             MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+#             BUCKETS: documents-bucket,processed-documents
+#             REDIS_NOTIFY_CHANNEL: ${REDIS_NOTIFY_CHANNEL}
+#             REDIS_PASSWORD: ${REDIS_PASSWORD}
+#             REDIS_HOST: redis
+#             REDIS_PORT: ${REDIS_PORT:-6379}
+#         entrypoint: /bin/sh
+#         command: /scripts/minio-init.sh
+#         volumes:
+#             - ./scripts/minio-init.sh:/scripts/minio-init.sh:ro
+#         networks:
+#             - imbbox-net
+#         restart: "no"
 
-    # worker:
-    #     build:
-    #         context: ./worker
-    #     container_name: imbbox2-worker
-    #     restart: unless-stopped
-    #     depends_on:
-    #         - mongodb
-    #         - minio
-    #     environment:
-    #         MINIO_ENDPOINT: http://minio:9000
-    #         MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-    #         MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    #         MINIO_SOURCE_BUCKET: documents-bucket
-    #         MINIO_DEST_BUCKET: processed-documents
-    #         MONGO_URI: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongodb:27017/?authSource=admin
-    #         MONGO_DB: tobu_ai
-    #         WORKER_POLL_INTERVAL_SEC: "5"
-    #         WORKER_STUCK_PROCESSING_MIN: "10"
-    #         LOG_LEVEL: INFO
-    #     volumes:
-    #         - worker_docling_cache:/home/worker/.cache/docling
-    #     networks:
-    #         - imbbox2-network
+# volumes:
+#     mongodb_data:
+#     redis_data:
+#     minio_data:
 
-    worker-rs:
-        build:
-            context: ./worker-rs
-        container_name: imbbox2-worker-rs
-        restart: unless-stopped
-        depends_on:
-            - mongodb
-            - minio
-        environment:
-            MINIO_ENDPOINT: http://minio:9000
-            AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
-            AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
-            MINIO_SOURCE_BUCKET: documents-bucket
-            MINIO_DEST_BUCKET: processed-documents
-            MONGO_URI: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongodb:27017/?authSource=admin
-            MONGO_DB: tobu_ai
-            WORKER_POLL_INTERVAL_SEC: "5"
-            WORKER_STUCK_PROCESSING_MIN: "10"
-            LOG_LEVEL: info
-        networks:
-            - imbbox2-network
-
-volumes:
-    mongodb_data:
-        driver: local
-    worker_docling_cache:
-        driver: local
-
-networks:
-    imbbox2-network:
-        driver: bridge
+# networks:
+#     imbbox-net:
+#         driver: bridge
