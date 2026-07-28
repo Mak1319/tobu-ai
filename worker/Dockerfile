@@ -24,8 +24,10 @@ RUN uv sync --frozen --no-dev
 COPY . .
 
 # docling's model downloads are big — pre-download is left to runtime.
+# Default command is the Celery worker; compose overrides for the bridge.
 ENV PYTHONUNBUFFERED=1 \
     HF_HOME=/data/.cache/huggingface \
-    TORCH_HOME=/data/.cache/torch
+    TORCH_HOME=/data/.cache/torch \
+    PATH="/app/.venv/bin:$PATH"
 
-CMD ["celery", "-A", "tasks", "worker", "--loglevel=INFO", "--queue=docling"]
+CMD ["uv", "run", "celery", "-A", "tasks", "worker", "--loglevel=INFO", "--queue=docling"]

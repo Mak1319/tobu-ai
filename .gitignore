@@ -4,3 +4,4 @@ node_modules
 minio-storage/
 .venv
 data
+test-minio-storage/
