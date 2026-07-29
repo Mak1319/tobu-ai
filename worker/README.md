@@ -1,94 +1,69 @@
-# docling-worker
+# Document worker
 
-Two-process Celery worker triggered by **MinIO bucket notifications** delivered
-as Redis list events (RPUSH / BLPOP). Completion is announced on a Redis
-**pub/sub** channel.
+This is a standalone worker. It does **not** use `tasks.py` or Celery.
 
-| Process                    | What it does                                                                                                                                                                                                     |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bridge` (`main.py`)       | `BLPOP`s `REDIS_EVENT_KEY` and enqueues each upload onto the Celery `docling` queue. Tiny, no ML.                                                                                                                |
-| Celery worker (`tasks.py`) | Downloads the object from MinIO (`documents-bucket`), runs [docling](https://github.com/docling-project/docling), writes markdown to `processed-documents`, and **PUBLISH**es status on `PUBSUB_RESULT_CHANNEL`. |
+## Flow
 
-## Buckets
+1. Block on the Redis list configured by `REDIS_EVENT_KEY`.
+2. Read MinIO object-created notifications and extract the object key and
+   `session_id`/`chat_id` metadata.
+3. Download the source object from `DOCUMENTS_BUCKET` and calculate its SHA-256.
+4. `HEAD` `processed-documents/<sha256>.md` (or the configured
+   `PROCESSED_BUCKET`). Existing output is skipped.
+5. Convert new documents to Markdown with Docling and upload the result.
+6. Publish a JSON status event to `PUBSUB_RESULT_CHANNEL`.
 
-| Bucket                | Purpose                             | Key shape                         |
-| --------------------- | ----------------------------------- | --------------------------------- |
-| `documents-bucket`    | Raw uploads (S3 PUTs from the app). | `{chatId}/{timestamp}-{filename}` |
-| `processed-documents` | Docling output.                     | `<sha256>.md`                     |
+The worker handles MinIO notification payloads containing `Records` as well as
+payloads wrapped in an `Event` array. If event metadata is unavailable, it
+reads metadata from the object itself and finally falls back to the first path
+component of the object key (the upload route uses the chat/session ID there).
 
-The worker keys output by **SHA-256 of the source file**, so dedup is a single
-`HEAD` against `processed-documents/<sha256>.md`. If that object already
-exists, the worker skips conversion and publishes `status: skipped`.
+## Configuration
 
-End-to-end flow:
+Copy `worker/.env.example` to `worker/.env`. The worker also loads the
+repository root `.env`; values in `worker/.env` take precedence.
 
-1. App `PUT`s a file to `s3://documents-bucket/{chatId}/...`.
-2. MinIO RPUSHes an event onto Redis list `REDIS_EVENT_KEY` (`minio-events-queue`).
-3. `bridge` (`main.py`) dispatches `tasks.process_document` on the `docling` queue.
-4. Celery worker downloads, hashes, converts (or skips), writes markdown, then
-   **PUBLISH**es JSON on `docling_results`:
-    ```json
-    {
-        "session_id": "<chatId>",
-        "status": "processed|skipped|error",
-        "file_key": "...",
-        "md_key": "<sha256>.md"
-    }
-    ```
+| Variable                | Default                 |
+| ----------------------- | ----------------------- |
+| `REDIS_HOST`            | `localhost`             |
+| `REDIS_PORT`            | `6379`                  |
+| `REDIS_DB`              | `0`                     |
+| `REDIS_PASSWORD`        | empty                   |
+| `REDIS_EVENT_KEY`       | `minio-events-queue`    |
+| `PUBSUB_RESULT_CHANNEL` | `docling_results`       |
+| `MINIO_ENDPOINT`        | `http://localhost:9000` |
+| `MINIO_ROOT_USER`       | `minioadmin`            |
+| `MINIO_ROOT_PASSWORD`   | empty                   |
+| `MINIO_REGION`          | `us-east-1`             |
+| `DOCUMENTS_BUCKET`      | `documents-bucket`      |
+| `PROCESSED_BUCKET`      | `processed-documents`   |
+| `LOG_LEVEL`             | `INFO`                  |
 
-## Run with docker compose
+When Redis and MinIO run through Compose but the worker runs on the host, use
+`localhost` values. When the worker runs as a process inside the Compose
+network, use `redis` and `http://minio:9000` instead.
 
-From the repo root (infra + both worker processes):
+## Run locally
 
 ```bash
-docker compose up -d redis minio createbuckets docling-bridge docling-worker
-```
-
-## Run locally with uv
-
-```bash
-# terminal 1 — celery worker
 cd worker
+cp .env.example .env
 uv sync
-uv run celery -A tasks worker --loglevel=INFO --queue=docling
-
-# terminal 2 — Redis list bridge
-cd worker
 uv run python main.py
 ```
 
-Point `REDIS_HOST` / `MINIO_ENDPOINT` at localhost if the stack is running via
-compose and you are running the worker on the host:
+Or with an already active virtual environment:
 
 ```bash
-REDIS_HOST=localhost MINIO_ENDPOINT=http://localhost:9000 uv run python main.py
+python main.py
 ```
 
-## Subscribe to completion events
+Subscribe to result events:
 
 ```bash
 redis-cli -a "$REDIS_PASSWORD" SUBSCRIBE docling_results
 ```
 
-## Configuration
-
-Values default to the docker-compose service names. Override via `worker/.env`
-or the process environment (root `.env` is loaded by compose).
-
-| Variable                | Default                   | Notes                                   |
-| ----------------------- | ------------------------- | --------------------------------------- |
-| `REDIS_HOST`            | `redis`                   | Redis host                              |
-| `REDIS_PORT`            | `6379`                    | Redis port                              |
-| `REDIS_PASSWORD`        | _(from root .env)_        | `requirepass`                           |
-| `REDIS_DB`              | `0`                       | DB for the event list + result pub/sub  |
-| `REDIS_EVENT_KEY`       | `minio-events-queue`      | List MinIO RPUSHes into; bridge BLOPs   |
-| `PUBSUB_RESULT_CHANNEL` | `docling_results`         | Channel worker PUBLISHes completion on  |
-| `CELERY_BROKER_URL`     | `redis://:…@redis:6379/1` | Auto-built from Redis settings if unset |
-| `CELERY_RESULT_BACKEND` | `redis://:…@redis:6379/2` | Auto-built from Redis settings if unset |
-| `CELERY_QUEUE`          | `docling`                 | Queue name                              |
-| `MINIO_ENDPOINT`        | `http://minio:9000`       | S3 API URL                              |
-| `MINIO_ROOT_USER`       | `minioadmin`              | Access key                              |
-| `MINIO_ROOT_PASSWORD`   | _(from root .env)_        | Secret key                              |
-| `DOCUMENTS_BUCKET`      | `documents-bucket`        | Source bucket                           |
-| `PROCESSED_BUCKET`      | `processed-documents`     | Output bucket                           |
-| `LOG_LEVEL`             | `INFO`                    | Logging level                           |
+The notification setup must push MinIO object-created events to the same Redis
+list named by `REDIS_EVENT_KEY`. The worker does not create buckets or configure
+MinIO notifications.
