@@ -5,3 +5,4 @@ minio-storage/
 .venv
 data
 test-minio-storage/
+docling-test

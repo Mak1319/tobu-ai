@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from storage.minio.credentials import get_minio_credentials
-
 from minio import Minio
+from storage.minio.credentials import get_minio_credentials
 
 
 @lru_cache

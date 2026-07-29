@@ -121,127 +121,127 @@ services:
         networks:
             - app-network
 
-    # ---------------------------------------------------------
-    # Standalone document worker — Redis list -> MinIO -> Docling -> pub/sub
-    # ---------------------------------------------------------
-    document-worker:
-        build:
-            context: ./worker
-        container_name: document-worker
-        restart: unless-stopped
-        command: ["uv", "run", "python", "main.py"]
-        env_file:
-            - .env
-        environment:
-            REDIS_HOST: redis
-            REDIS_PORT: ${REDIS_PORT:-6379}
-            REDIS_PASSWORD: ${REDIS_PASSWORD}
-            REDIS_DB: ${REDIS_DB:-0}
-            REDIS_EVENT_KEY: ${REDIS_EVENT_KEY:-minio-events-queue}
-            PUBSUB_RESULT_CHANNEL: ${PUBSUB_RESULT_CHANNEL:-docling_results}
-            MINIO_ENDPOINT: http://minio:9000
-            MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-            MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-            MINIO_REGION: ${MINIO_REGION:-us-east-1}
-            DOCUMENTS_BUCKET: ${DOCUMENTS_BUCKET:-documents-bucket}
-            PROCESSED_BUCKET: ${PROCESSED_BUCKET:-processed-documents}
-            LOG_LEVEL: ${LOG_LEVEL:-INFO}
-        depends_on:
-            redis:
-                condition: service_healthy
-            minio:
-                condition: service_healthy
-        networks:
-            - app-network
+        # ---------------------------------------------------------
+        # Standalone document worker — Redis list -> MinIO -> Docling -> pub/sub
+        # ---------------------------------------------------------
+        # document-worker:
+        #     build:
+        #         context: ./worker
+        #     container_name: document-worker
+        #     restart: unless-stopped
+        #     command: ["uv", "run", "python", "main.py"]
+        #     env_file:
+        #         - .env
+        #     environment:
+        #         REDIS_HOST: redis
+        #         REDIS_PORT: ${REDIS_PORT:-6379}
+        #         REDIS_PASSWORD: ${REDIS_PASSWORD}
+        #         REDIS_DB: ${REDIS_DB:-0}
+        #         REDIS_EVENT_KEY: ${REDIS_EVENT_KEY:-minio-events-queue}
+        #         PUBSUB_RESULT_CHANNEL: ${PUBSUB_RESULT_CHANNEL:-docling_results}
+        #         MINIO_ENDPOINT: http://minio:9000
+        #         MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+        #         MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+        #         MINIO_REGION: ${MINIO_REGION:-us-east-1}
+        #         DOCUMENTS_BUCKET: ${DOCUMENTS_BUCKET:-documents-bucket}
+        #         PROCESSED_BUCKET: ${PROCESSED_BUCKET:-processed-documents}
+        #         LOG_LEVEL: ${LOG_LEVEL:-INFO}
+        #     depends_on:
+        #         redis:
+        #             condition: service_healthy
+        #         minio:
+        #             condition: service_healthy
+        #     networks:
+        #         - app-network
 
-    # ---------------------------------------------------------
-    # Legacy Celery bridge configuration (disabled)
-    # ---------------------------------------------------------
-    # Docling bridge — BLPOP MinIO events from Redis list, enqueue Celery
-    # ---------------------------------------------------------
-    # docling-bridge:
-    #     build:
-    #         context: ./worker
-    #     container_name: docling-bridge
-    #     restart: unless-stopped
-    #     command: ["uv", "run", "python", "main.py"]
-    #     env_file:
-    #         - .env
-    #     environment:
-    #         REDIS_HOST: redis
-    #         REDIS_PORT: ${REDIS_PORT:-6379}
-    #         REDIS_PASSWORD: ${REDIS_PASSWORD}
-    #         REDIS_EVENT_KEY: ${REDIS_EVENT_KEY}
-    #         REDIS_DB: ${REDIS_DB:-0}
-    #         MINIO_ENDPOINT: http://minio:9000
-    #         MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-    #         MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    #         DOCUMENTS_BUCKET: ${DOCUMENTS_BUCKET:-documents-bucket}
-    #         PROCESSED_BUCKET: ${PROCESSED_BUCKET:-processed-documents}
-    #         PUBSUB_RESULT_CHANNEL: ${PUBSUB_RESULT_CHANNEL:-docling_results}
-    #         CELERY_QUEUE: ${CELERY_QUEUE:-docling}
-    #     depends_on:
-    #         redis:
-    #             condition: service_healthy
-    #         minio:
-    #             condition: service_healthy
-    #     networks:
-    #         - app-network
+        # ---------------------------------------------------------
+        # Legacy Celery bridge configuration (disabled)
+        # ---------------------------------------------------------
+        # Docling bridge — BLPOP MinIO events from Redis list, enqueue Celery
+        # ---------------------------------------------------------
+        # docling-bridge:
+        #     build:
+        #         context: ./worker
+        #     container_name: docling-bridge
+        #     restart: unless-stopped
+        #     command: ["uv", "run", "python", "main.py"]
+        #     env_file:
+        #         - .env
+        #     environment:
+        #         REDIS_HOST: redis
+        #         REDIS_PORT: ${REDIS_PORT:-6379}
+        #         REDIS_PASSWORD: ${REDIS_PASSWORD}
+        #         REDIS_EVENT_KEY: ${REDIS_EVENT_KEY}
+        #         REDIS_DB: ${REDIS_DB:-0}
+        #         MINIO_ENDPOINT: http://minio:9000
+        #         MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+        #         MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+        #         DOCUMENTS_BUCKET: ${DOCUMENTS_BUCKET:-documents-bucket}
+        #         PROCESSED_BUCKET: ${PROCESSED_BUCKET:-processed-documents}
+        #         PUBSUB_RESULT_CHANNEL: ${PUBSUB_RESULT_CHANNEL:-docling_results}
+        #         CELERY_QUEUE: ${CELERY_QUEUE:-docling}
+        #     depends_on:
+        #         redis:
+        #             condition: service_healthy
+        #         minio:
+        #             condition: service_healthy
+        #     networks:
+        #         - app-network
 
-    # ---------------------------------------------------------
-    # Docling Celery worker — convert documents, publish results
-    # ---------------------------------------------------------
-    # docling-worker:
-    #     build:
-    #         context: ./worker
-    #     container_name: docling-worker
-    #     restart: unless-stopped
-    #     command:
-    #         [
-    #             "uv",
-    #             "run",
-    #             "celery",
-    #             "-A",
-    #             "tasks",
-    #             "worker",
-    #             "--loglevel=INFO",
-    #             "--queue=docling",
-    #         ]
-    #     env_file:
-    #         - .env
-    #     environment:
-    #         REDIS_HOST: redis
-    #         REDIS_PORT: ${REDIS_PORT:-6379}
-    #         REDIS_PASSWORD: ${REDIS_PASSWORD}
-    #         REDIS_DB: ${REDIS_DB:-0}
-    #         MINIO_ENDPOINT: http://minio:9000
-    #         MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-    #         MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    #         DOCUMENTS_BUCKET: ${DOCUMENTS_BUCKET:-documents-bucket}
-    #         PROCESSED_BUCKET: ${PROCESSED_BUCKET:-processed-documents}
-    #         PUBSUB_RESULT_CHANNEL: ${PUBSUB_RESULT_CHANNEL:-docling_results}
-    #         CELERY_QUEUE: ${CELERY_QUEUE:-docling}
-    #     depends_on:
-    #         redis:
-    #             condition: service_healthy
-    #         minio:
-    #             condition: service_healthy
-    #     networks:
-    #         - app-network
+        # ---------------------------------------------------------
+        # Docling Celery worker — convert documents, publish results
+        # ---------------------------------------------------------
+        # docling-worker:
+        #     build:
+        #         context: ./worker
+        #     container_name: docling-worker
+        #     restart: unless-stopped
+        #     command:
+        #         [
+        #             "uv",
+        #             "run",
+        #             "celery",
+        #             "-A",
+        #             "tasks",
+        #             "worker",
+        #             "--loglevel=INFO",
+        #             "--queue=docling",
+        #         ]
+        #     env_file:
+        #         - .env
+        #     environment:
+        #         REDIS_HOST: redis
+        #         REDIS_PORT: ${REDIS_PORT:-6379}
+        #         REDIS_PASSWORD: ${REDIS_PASSWORD}
+        #         REDIS_DB: ${REDIS_DB:-0}
+        #         MINIO_ENDPOINT: http://minio:9000
+        #         MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+        #         MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+        #         DOCUMENTS_BUCKET: ${DOCUMENTS_BUCKET:-documents-bucket}
+        #         PROCESSED_BUCKET: ${PROCESSED_BUCKET:-processed-documents}
+        #         PUBSUB_RESULT_CHANNEL: ${PUBSUB_RESULT_CHANNEL:-docling_results}
+        #         CELERY_QUEUE: ${CELERY_QUEUE:-docling}
+        #     depends_on:
+        #         redis:
+        #             condition: service_healthy
+        #         minio:
+        #             condition: service_healthy
+        #     networks:
+        #         - app-network
 
-    # ---------------------------------------------------------
-    # LiveKit voice stack — opt-in via `--profile voice`.
-    # Without the profile, `docker compose up` does NOT start these.
-    # ---------------------------------------------------------
+        # ---------------------------------------------------------
+        # LiveKit voice stack — opt-in via `--profile voice`.
+        # Without the profile, `docker compose up` does NOT start these.
+        # ---------------------------------------------------------
     livekit:
         image: livekit/livekit-server:latest
         container_name: livekit
         restart: unless-stopped
         profiles: ["voice"]
         ports:
-            - "7880:7880"      # HTTP/WS signaling
-            - "7881:7881/udp"  # TURN/UDP
-            - "7882:7882/tcp"  # TURN/TCP
+            - "7880:7880" # HTTP/WS signaling
+            - "7881:7881/udp" # TURN/UDP
+            - "7882:7882/tcp" # TURN/TCP
         environment:
             # Single dev key -- must match the values the livekit-agent
             # worker uses for LIVEKIT_API_KEY/SECRET.
@@ -251,7 +251,11 @@ services:
             - "--bind"
             - "0.0.0.0"
         healthcheck:
-            test: ["CMD-SHELL", "wget -qO- http://localhost:7880/ >/dev/null 2>&1 || exit 1"]
+            test:
+                [
+                    "CMD-SHELL",
+                    "wget -qO- http://localhost:7880/ >/dev/null 2>&1 || exit 1",
+                ]
             interval: 10s
             timeout: 5s
             retries: 5
@@ -290,3 +294,18 @@ services:
                 condition: service_healthy
         networks:
             - app-network
+    # docling-serve:
+    #     image: quay.io/docling-project/docling-serve-cu128:latest
+    #     ports:
+    #         - "5001:5001"
+    #     environment:
+    #         - DOCLING_SERVE_ENABLE_UI=true
+    #         - DOCLING_SERVE_MAX_SYNC_WAIT=600
+    #     restart: unless-stopped
+    #     deploy:
+    #         resources:
+    #             reservations:
+    #                 devices:
+    #                     - driver: nvidia
+    #                       count: all
+    #                       capabilities: [gpu]

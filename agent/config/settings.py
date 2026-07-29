@@ -18,7 +18,7 @@ _ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
+    model_config = SettingsConfigDict(  # pyright: ignore[reportUnannotatedClassAttribute]
         env_file=str(_ENV_FILE),
         env_file_encoding="utf-8",
         extra="ignore",

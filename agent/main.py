@@ -9,6 +9,10 @@ When the run pauses on an `interrupt()`, this prints the interrupt payload
 and exits; resume it with:
 
     uv run python -m main resume --thread-id <id> --value "some answer"
+
+To bring up the AG-UI HTTP server (consumed by tobu-ai-ui):
+
+    uv run python -m main serve --host 0.0.0.0 --port 8000
 """
 
 from __future__ import annotations
@@ -81,6 +85,17 @@ def _cli() -> None:
     resume.add_argument("--thread-id", required=True)
     resume.add_argument("--value", required=True)
 
+    serve = sub.add_parser(
+        "serve", help="Run the AG-UI HTTP server (consumed by tobu-ai-ui)"
+    )
+    serve.add_argument("--host", default="0.0.0.0")
+    serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument(
+        "--reload",
+        action="store_true",
+        help="Enable auto-reload (development only).",
+    )
+
     args = parser.parse_args()
 
     if args.command == "start":
@@ -88,6 +103,20 @@ def _cli() -> None:
         start_run(syllabus_text, args.user_id, args.thread_id)
     elif args.command == "resume":
         resume_run(args.thread_id, args.value)
+    elif args.command == "serve":
+        _serve(args.host, args.port, args.reload)
+
+
+def _serve(host: str, port: int, reload: bool) -> None:
+    import uvicorn
+
+    uvicorn.run(
+        "api.agui_server:app",
+        host=host,
+        port=port,
+        reload=reload,
+        log_level="info",
+    )
 
 
 if __name__ == "__main__":
