@@ -1,6 +1,7 @@
 "use client"
 
 import { use, useState } from "react"
+import { useRouter } from "next/navigation"
 import WizardLayout from "../_wizard/layout"
 import Step1Page from "../_wizard/step-1/page"
 import Step2Layout from "../_wizard/step-2/layout"
@@ -14,11 +15,16 @@ export default function ChatDetailPage({
   params: Promise<{ chatId: string }>
 }) {
   const { chatId } = use(params)
+  const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [currentSubstep, setCurrentSubstep] = useState(1)
 
   const handleUploadComplete = () => {
     setCurrentStep(2)
+  }
+
+  const launchVoice = () => {
+    router.push(`/chat/${chatId}/live`)
   }
 
   const renderStep = () => {
@@ -46,7 +52,7 @@ export default function ChatDetailPage({
       )
     }
     if (currentStep === 3) {
-      return <Step3Page />
+      return <Step3Page chatId={chatId} onLaunchVoice={launchVoice} />
     }
     return null
   }

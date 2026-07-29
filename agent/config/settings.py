@@ -61,6 +61,18 @@ class Settings(BaseSettings):
         default="http://localhost:11434", alias="OLLAMA_BASE_URL"
     )
 
+    # ---- LiveKit (voice agent transport) ----
+    # URL the LiveKit Agents worker dials -- "ws://livekit:7880" inside docker
+    # compose, "ws://localhost:7880" from the host, or "wss://..." for cloud.
+    livekit_url: str = Field(default="ws://localhost:7880", alias="LIVEKIT_URL")
+    livekit_api_key: str = Field(default="devkey", alias="LIVEKIT_API_KEY")
+    livekit_api_secret: str = Field(default="secret", alias="LIVEKIT_API_SECRET")
+    # Plugin names registered with the LiveKit Agents framework. Kept
+    # configurable so the same image can swap providers without rebuilding.
+    livekit_stt_provider: str = Field(default="openai", alias="LIVEKIT_STT_PROVIDER")
+    livekit_tts_provider: str = Field(default="openai", alias="LIVEKIT_TTS_PROVIDER")
+    livekit_llm_provider: str = Field(default="openai", alias="LIVEKIT_LLM_PROVIDER")
+
     @property
     def mongo_uri(self) -> str:
         if self.mongo_uri_override:

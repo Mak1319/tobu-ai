@@ -18,7 +18,7 @@ import uuid
 from collections.abc import Iterator
 from typing import Any
 
-from langgraph.graph.state import RunnableConfig
+from langchain_core.runnables import RunnableConfig
 
 from checkpointer import get_checkpointer
 from graph import build_graph

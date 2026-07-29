@@ -104,3 +104,68 @@ from providers.models import ProviderConfig, ProviderName
 
 set_preferences("u123", ProviderConfig(provider=ProviderName.OPENAI, model="gpt-4o-mini", api_key="sk-..."))
 ```
+
+## Voice (LiveKit)
+
+The agent can also be driven over a LiveKit audio room. The voice worker
+lives in `agent/livekit/` and reuses the same LangGraph workflow --
+voice just changes the transport (microphone/speaker instead of text in
+the terminal).
+
+### Layout
+
+- `agent/livekit/agent.py` — entry point. Run via `python -m livekit.agent`.
+- `agent/livekit/langgraph_tool.py` — the bridge between a LiveKit user
+  utterance and the existing LangGraph workflow, including the
+  `interrupt()` round-trip.
+- `persistence/mongodb/livekit_sessions.py` — per-room bookkeeping so a
+  rejoin picks the same LangGraph thread.
+
+### Bring it up
+
+```sh
+# Start the base stack (minio, mongo, redis, document-worker)
+docker compose up -d
+
+# Then start the voice stack — opt-in profile, no impact when omitted.
+docker compose --profile voice up -d livekit livekit-agent
+
+# Tail logs to verify the worker registers with the LiveKit server.
+docker compose logs -f livekit-agent
+```
+
+You also need to start `tobu-ai-ui` and pass the matching
+`NEXT_PUBLIC_LIVEKIT_URL` so the browser knows where to dial. The dev
+defaults (`ws://localhost:7880`) work as long as the browser is on the
+same host.
+
+### How the voice flow works
+
+1. The Next.js token route (`/api/livekit/token`) mints a JWT for
+   `room=chat-{chatId}` with `identity={userId}`.
+2. The browser opens the LiveKit room via `components/voice-room.tsx`
+   (audio-only).
+3. `livekit-agent` joins the room, waits for the user, then spins up
+   an `AgentSession` (Silero VAD + multilingual turn detection +
+   OpenAI STT/TTS).
+4. Each user utterance triggers the `ask_quiz` function tool, which
+   delegates to `run_quiz_graph` -- the same `build_graph()` entry point
+   the CLI uses. `interrupt()` payloads from `select_subject`,
+   `select_topic`, `answer_question`, and `continue_session` nodes are
+   converted into spoken prompts; the next user utterance resumes the
+   paused graph via `Command(resume=...)`.
+5. The thread is persisted in MongoDB via the
+   `livekit_sessions` collection, so refreshing the page (or
+   restarting the worker) keeps the same conversation.
+
+### Configuring STT/TTS/LLM providers
+
+The voice worker reads provider names from
+`LIVEKIT_STT_PROVIDER`, `LIVEKIT_TTS_PROVIDER`, and
+`LIVEKIT_LLM_PROVIDER`. Only `openai` is wired up by default;
+additional plugins (deepgram, cartesia, etc.) plug in via
+`agent/livekit/agent.py::_build_stt` / `_build_tts`. The LLM
+configuration only governs which LiveKit plugin decides *when* to
+call the `ask_quiz` tool -- the actual reasoning happens inside the
+existing LangGraph workflow, which uses the user's saved provider
+from `model_preferences`.

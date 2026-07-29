@@ -22,3 +22,23 @@ MODEL_PREFERENCES_COLLECTION = "model_preferences"
 
 WORKFLOW_RUNS_COLLECTION = "workflow_runs"
 """Optional bookkeeping of started workflow runs (thread_id -> user_id, syllabus source)."""
+
+LIVEKIT_SESSIONS_COLLECTION = "livekit_sessions"
+"""Voice-session bookkeeping keyed by LiveKit room name.
+
+Document shape::
+
+    {
+        "room_name": "chat-<chatId>",
+        "user_id": str,
+        "chat_id": str,
+        "thread_id": str,         # LangGraph thread that backs this voice session
+        "syllabus_text": str,     # populated once the syllabus has been resolved
+        "object_key": str | None, # MinIO key for the docling-produced markdown
+        "created_at": datetime,
+        "updated_at": datetime,
+    }
+
+Used by `agent/livekit/langgraph_tool.py` so a rejoin (or agent restart)
+can pick the same LangGraph thread instead of starting over.
+"""
