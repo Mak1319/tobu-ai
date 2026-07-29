@@ -1,0 +1,8 @@
+{
+    "venvPath": ".",
+    "venv": ".venv",
+    "reportUnusedCallResult": "none",
+    "reportTypedDictNotRequiredAccess": "none",
+    "reportMissingTypeArgument": "none",
+    "reportUnknownLambdaType": "none",
+}

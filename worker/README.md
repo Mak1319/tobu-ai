@@ -67,3 +67,23 @@ redis-cli -a "$REDIS_PASSWORD" SUBSCRIBE docling_results
 The notification setup must push MinIO object-created events to the same Redis
 list named by `REDIS_EVENT_KEY`. The worker does not create buckets or configure
 MinIO notifications.
+
+## Run with Docker Compose
+
+The repository Compose file contains an active `document-worker` service. It
+uses the root `.env` file and connects to the Compose services as `redis` and
+`http://minio:9000`.
+
+```bash
+# Build the worker image
+docker compose build document-worker
+
+# Start infrastructure and the worker
+docker compose up -d redis minio createbuckets document-worker
+
+# Follow worker logs
+docker compose logs -f document-worker
+```
+
+The Docker image runs `uv run python main.py`; it does not start Celery and does
+not use `tasks.py`.
