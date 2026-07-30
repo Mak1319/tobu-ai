@@ -233,79 +233,32 @@ services:
         # LiveKit voice stack — opt-in via `--profile voice`.
         # Without the profile, `docker compose up` does NOT start these.
         # ---------------------------------------------------------
-    livekit:
-        image: livekit/livekit-server:latest
-        container_name: livekit
-        restart: unless-stopped
-        profiles: ["voice"]
-        ports:
-            - "7880:7880" # HTTP/WS signaling
-            - "7881:7881/udp" # TURN/UDP
-            - "7882:7882/tcp" # TURN/TCP
-        environment:
-            # Single dev key -- must match the values the livekit-agent
-            # worker uses for LIVEKIT_API_KEY/SECRET.
-            LIVEKIT_KEYS: "devkey: ${LIVEKIT_API_SECRET:-secret}"
-        command:
-            - "--dev"
-            - "--bind"
-            - "0.0.0.0"
-        healthcheck:
-            test:
-                [
-                    "CMD-SHELL",
-                    "wget -qO- http://localhost:7880/ >/dev/null 2>&1 || exit 1",
-                ]
-            interval: 10s
-            timeout: 5s
-            retries: 5
-            start_period: 10s
-        networks:
-            - app-network
-
-    livekit-agent:
-        build:
-            context: ./agent
-        container_name: livekit-agent
-        restart: unless-stopped
-        profiles: ["voice"]
-        command: ["uv", "run", "python", "-m", "livekit.agent"]
-        env_file:
-            - .env
-        environment:
-            # Inside the docker network the agent dials the livekit service
-            # by name; the .env default of ws://livekit:7880 is exactly that.
-            LIVEKIT_URL: ${LIVEKIT_URL:-ws://livekit:7880}
-            LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
-            LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
-            MONGO_HOST: mongodb
-            MONGO_PORT: ${MONGO_PORT:-27017}
-            MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
-            MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
-            MONGO_DB_NAME: ${MONGO_DB_NAME:-imbbox2_agent}
-            MINIO_ENDPOINT: minio:9000
-            MINIO_SECURE: "false"
-            MINIO_BUCKET: ${DOCUMENTS_BUCKET:-documents-bucket}
-            OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-        depends_on:
-            livekit:
-                condition: service_healthy
-            mongodb:
-                condition: service_healthy
-        networks:
-            - app-network
-    # docling-serve:
-    #     image: quay.io/docling-project/docling-serve-cu128:latest
-    #     ports:
-    #         - "5001:5001"
-    #     environment:
-    #         - DOCLING_SERVE_ENABLE_UI=true
-    #         - DOCLING_SERVE_MAX_SYNC_WAIT=600
+    # livekit:
+    #     image: livekit/livekit-server:latest
+    #     container_name: livekit
     #     restart: unless-stopped
-    #     deploy:
-    #         resources:
-    #             reservations:
-    #                 devices:
-    #                     - driver: nvidia
-    #                       count: all
-    #                       capabilities: [gpu]
+    #     profiles: ["voice"]
+    #     ports:
+    #         - "7880:7880" # HTTP/WS signaling
+    #         - "7881:7881/udp" # TURN/UDP
+    #         - "7882:7882/tcp" # TURN/TCP
+    #     environment:
+    #         # Single dev key -- must match the values the livekit-agent
+    #         # worker uses for LIVEKIT_API_KEY/SECRET.
+    #         LIVEKIT_KEYS: "devkey: ${LIVEKIT_API_SECRET:-secret}"
+    #     command:
+    #         - "--dev"
+    #         - "--bind"
+    #         - "0.0.0.0"
+    #     healthcheck:
+    #         test:
+    #             [
+    #                 "CMD-SHELL",
+    #                 "wget -qO- http://localhost:7880/ >/dev/null 2>&1 || exit 1",
+    #             ]
+    #         interval: 10s
+    #         timeout: 5s
+    #         retries: 5
+    #         start_period: 10s
+    #     networks:
+    #         - app-network
