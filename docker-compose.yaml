@@ -138,7 +138,7 @@ services:
         #         REDIS_PASSWORD: ${REDIS_PASSWORD}
         #         REDIS_DB: ${REDIS_DB:-0}
         #         REDIS_EVENT_KEY: ${REDIS_EVENT_KEY:-minio-events-queue}
-        #         PUBSUB_RESULT_CHANNEL: ${PUBSUB_RESULT_CHANNEL:-docling_results}
+        #         STREAM_RESULT_KEY: ${STREAM_RESULT_KEY:-docling_results}
         #         MINIO_ENDPOINT: http://minio:9000
         #         MINIO_ROOT_USER: ${MINIO_ROOT_USER}
         #         MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
@@ -178,7 +178,7 @@ services:
         #         MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
         #         DOCUMENTS_BUCKET: ${DOCUMENTS_BUCKET:-documents-bucket}
         #         PROCESSED_BUCKET: ${PROCESSED_BUCKET:-processed-documents}
-        #         PUBSUB_RESULT_CHANNEL: ${PUBSUB_RESULT_CHANNEL:-docling_results}
+        #         STREAM_RESULT_KEY: ${STREAM_RESULT_KEY:-docling_results}
         #         CELERY_QUEUE: ${CELERY_QUEUE:-docling}
         #     depends_on:
         #         redis:
@@ -219,7 +219,7 @@ services:
         #         MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
         #         DOCUMENTS_BUCKET: ${DOCUMENTS_BUCKET:-documents-bucket}
         #         PROCESSED_BUCKET: ${PROCESSED_BUCKET:-processed-documents}
-        #         PUBSUB_RESULT_CHANNEL: ${PUBSUB_RESULT_CHANNEL:-docling_results}
+        #         STREAM_RESULT_KEY: ${STREAM_RESULT_KEY:-docling_results}
         #         CELERY_QUEUE: ${CELERY_QUEUE:-docling}
         #     depends_on:
         #         redis:

@@ -10,3 +10,5 @@ imb
 agent-starter-react
 agent-starter-react
 .zed
+__pycache__
+/_wizard

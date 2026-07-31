@@ -22,6 +22,9 @@
     "hooks": "@/hooks"
   },
   "registries": {
-    "@blocks-so": "https://blocks.so/r/{name}.json"
+    "@blocks-so": "https://blocks.so/r/{name}.json",
+    "@ai-blocks": "https://webllm.org/r/{name}.json",
+    "@livekit": "https://livekit.io/r/{name}.json",
+    "@agents-ui": "https://livekit.com/ui/r/{name}.json"
   }
 }

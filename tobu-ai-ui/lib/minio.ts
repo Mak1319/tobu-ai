@@ -13,6 +13,10 @@ const MINIO_ROOT_PASSWORD = process.env.MINIO_ROOT_PASSWORD;
 // Prefer MINIO_BUCKET; fall back to DOCUMENTS_BUCKET so root .env naming works too.
 const MINIO_BUCKET =
     process.env.MINIO_BUCKET || process.env.DOCUMENTS_BUCKET || "";
+export const PROCESSED_BUCKET =
+    process.env.PROCESSED_BUCKET ||
+    process.env.MINIO_BUCKET_PROCESSED ||
+    "processed-documents";
 // Must match compose: arn:minio:sqs::primary:redis
 const MINIO_NOTIFY_ARN =
     process.env.MINIO_NOTIFY_ARN ||

@@ -11,7 +11,8 @@ This is a standalone worker. It does **not** use `tasks.py` or Celery.
 4. `HEAD` `processed-documents/<sha256>.md` (or the configured
    `PROCESSED_BUCKET`). Existing output is skipped.
 5. Convert new documents to Markdown with Docling and upload the result.
-6. Publish a JSON status event to `PUBSUB_RESULT_CHANNEL`.
+6. Append a JSON status event to the Redis stream `STREAM_RESULT_KEY`
+   (via `XADD`) so the UI SSE bridge can catch up if it reconnects late.
 
 The worker handles MinIO notification payloads containing `Records` as well as
 payloads wrapped in an `Event` array. If event metadata is unavailable, it
@@ -30,7 +31,8 @@ repository root `.env`; values in `worker/.env` take precedence.
 | `REDIS_DB`              | `0`                     |
 | `REDIS_PASSWORD`        | empty                   |
 | `REDIS_EVENT_KEY`       | `minio-events-queue`    |
-| `PUBSUB_RESULT_CHANNEL` | `docling_results`       |
+| `STREAM_RESULT_KEY`     | `docling_results`       |
+| `STREAM_MAXLEN`         | `10000`                 |
 | `MINIO_ENDPOINT`        | `http://localhost:9000` |
 | `MINIO_ROOT_USER`       | `minioadmin`            |
 | `MINIO_ROOT_PASSWORD`   | empty                   |
@@ -58,10 +60,10 @@ Or with an already active virtual environment:
 python main.py
 ```
 
-Subscribe to result events:
+Read recent result events from the stream:
 
 ```bash
-redis-cli -a "$REDIS_PASSWORD" SUBSCRIBE docling_results
+redis-cli -a "$REDIS_PASSWORD" XREVRANGE docling_results + - COUNT 10
 ```
 
 The notification setup must push MinIO object-created events to the same Redis

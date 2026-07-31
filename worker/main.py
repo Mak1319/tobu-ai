@@ -44,7 +44,11 @@ REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 REDIS_DB = int(os.getenv("REDIS_DB", "0"))
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD") or None
 REDIS_EVENT_KEY = os.getenv("REDIS_EVENT_KEY", "minio-events-queue")
-PUBSUB_RESULT_CHANNEL = os.getenv("PUBSUB_RESULT_CHANNEL", "docling_results")
+STREAM_RESULT_KEY = os.getenv(
+    "STREAM_RESULT_KEY",
+    os.getenv("PUBSUB_RESULT_CHANNEL", "docling_results"),
+)
+STREAM_MAXLEN = int(os.getenv("STREAM_MAXLEN", "10000"))
 
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "http://localhost:9000")
 MINIO_ROOT_USER = os.getenv("MINIO_ROOT_USER", "minioadmin")
@@ -190,8 +194,13 @@ def _publish(session_id: str | None, status: str, file_key: str, **extra: Any) -
         "file_key": file_key,
         **extra,
     }
-    redis_client.publish(PUBSUB_RESULT_CHANNEL, json.dumps(payload))
-    log.info("published %s on %s", payload, PUBSUB_RESULT_CHANNEL)
+    entry_id = redis_client.xadd(
+        STREAM_RESULT_KEY,
+        {"payload": json.dumps(payload)},
+        maxlen=STREAM_MAXLEN,
+        approximate=True,
+    )
+    log.info("xadd %s id=%s on %s", payload, entry_id, STREAM_RESULT_KEY)
 
 
 def process_upload(file_key: str, event_session_id: str | None) -> None:

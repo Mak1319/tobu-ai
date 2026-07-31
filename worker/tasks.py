@@ -33,7 +33,11 @@ REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 REDIS_DB = int(os.getenv("REDIS_DB", "0"))
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
-PUBSUB_RESULT_CHANNEL = os.getenv("PUBSUB_RESULT_CHANNEL", "docling_results")
+STREAM_RESULT_KEY = os.getenv(
+    "STREAM_RESULT_KEY",
+    os.getenv("PUBSUB_RESULT_CHANNEL", "docling_results"),
+)
+STREAM_MAXLEN = int(os.getenv("STREAM_MAXLEN", "10000"))
 
 
 def _redis_url(db: int) -> str:
@@ -89,15 +93,20 @@ converter = DocumentConverter()
 
 
 def _publish(session_id: str, status: str, file_key: str, **extra: object) -> None:
-    """Notify subscribers that processing finished (or was skipped)."""
+    """Append a completion event to the docling results stream."""
     payload = {
         "session_id": session_id,
         "status": status,
         "file_key": file_key,
         **extra,
     }
-    redis_client.publish(PUBSUB_RESULT_CHANNEL, json.dumps(payload))
-    log.info("published %s on %s", payload, PUBSUB_RESULT_CHANNEL)
+    entry_id = redis_client.xadd(
+        STREAM_RESULT_KEY,
+        {"payload": json.dumps(payload)},
+        maxlen=STREAM_MAXLEN,
+        approximate=True,
+    )
+    log.info("xadd %s id=%s on %s", payload, entry_id, STREAM_RESULT_KEY)
 
 
 def _already_processed(md_key: str) -> bool:

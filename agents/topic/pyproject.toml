@@ -1,0 +1,15 @@
+[project]
+name = "topic"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "ag-ui-langgraph>=0.0.42",
+    "fastapi>=0.141.1",
+    "langgraph>=1.2.10",
+    "langgraph-checkpoint-mongodb>=0.4.0",
+    "pydantic>=2.13.4",
+    "pymongo>=4.17.0",
+    "uvicorn>=0.52.0",
+]
