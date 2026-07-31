@@ -36,12 +36,12 @@
 "use client";
 
 import { useSession, useAgent } from "@livekit/components-react";
-import { AgentSessionProvider } from "@/components/agents-ui/agent-session-provider";
+// import { AgentSessionProvider } from "@/components/agents-ui/agent-session-provider";
 import { AgentAudioVisualizerWave } from "@/components/agents-ui/agent-audio-visualizer-wave";
 
 // const TOKEN_SOURCE = TokenSource.endpoint("/api/token");
 
-export function Demo() {
+export default function Demo() {
     // const { audioTrack, state } = useAgent();
 
     return (
@@ -50,19 +50,19 @@ export function Demo() {
             color="#1FD5F9"
             blur={0.1}
             lineWidth={2}
-            audioTrack={audioTrack}
-            state={state}
+            // audioTrack={audioTrack}
+            // state={state}
             colorShift={0.3}
         />
     );
 }
 
-export default function DemoWrapper({ session }) {
-    const session = useSession(TOKEN_SOURCE);
+// export default function DemoWrapper({ session }) {
+//     const session = useSession(TOKEN_SOURCE);
 
-    return (
-        <AgentSessionProvider session={session}>
-            <Demo />
-        </AgentSessionProvider>
-    );
-}
+//     return (
+//         <AgentSessionProvider session={session}>
+//             <Demo />
+//         </AgentSessionProvider>
+//     );
+// }
