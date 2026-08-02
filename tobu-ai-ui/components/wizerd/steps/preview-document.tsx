@@ -85,7 +85,9 @@ export default function PreviewDocument({ next }: PreviewDocumentPageProps) {
     const chatId = params.chatId as string;
 
     const [phase, setPhase] = useState<PreviewPhase>("resolving");
-    const [statusLabel, setStatusLabel] = useState("Loading processed document…");
+    const [statusLabel, setStatusLabel] = useState(
+        "Loading processed document…",
+    );
     const [mdKey, setMdKey] = useState<string | null>(null);
     const [markdown, setMarkdown] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -146,7 +148,6 @@ export default function PreviewDocument({ next }: PreviewDocumentPageProps) {
                         ? err.message
                         : "Could not load processed markdown",
                 );
-                // Surface which key we asked for so hash mismatches are obvious.
                 if (resolved.mdKey) {
                     setStatusLabel(`Missing ${resolved.mdKey}`);
                 }
@@ -171,68 +172,69 @@ export default function PreviewDocument({ next }: PreviewDocumentPageProps) {
         phase === "ready" && markdown != null && markdown.length > 0;
 
     return (
-        <div className="flex justify-center  overflow-hidden no-scrollbar">
-            <div className="flex   flex-col gap-4 p-4 sm:p-6">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                        <h2 className="text-lg font-semibold text-foreground">
-                            Preview document
-                        </h2>
-                        <p className="text-sm text-muted-foreground">
-                            {statusLabel}
-                        </p>
-                    </div>
-                    <Badge
-                        variant={
-                            phase === "ready"
-                                ? "default"
-                                : phase === "error"
-                                  ? "destructive"
-                                  : "secondary"
-                        }
-                    >
-                        {phase}
-                    </Badge>
+        <div className="mx-auto flex h-[min(100%,calc(100dvh-8rem))] min-h-0 w-full max-w-3xl flex-col gap-4">
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0">
+                    <h2 className="text-lg font-semibold text-foreground">
+                        Preview document
+                    </h2>
+                    <p className="truncate text-sm text-muted-foreground">
+                        {statusLabel}
+                    </p>
+                </div>
+                <Badge
+                    variant={
+                        phase === "ready"
+                            ? "default"
+                            : phase === "error"
+                              ? "destructive"
+                              : "secondary"
+                    }
+                >
+                    {phase}
+                </Badge>
+            </div>
+
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background">
+                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2">
+                    <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                        Document preview
+                    </span>
+                    {mdKey && (
+                        <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+                            {mdKey}
+                        </span>
+                    )}
                 </div>
 
-                <div className="overflow-scroll no-scrollbar ">
-                    <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2">
-                        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            Document preview
-                        </span>
-                        {mdKey && (
-                            <span className="truncate font-mono text-xs text-muted-foreground">
-                                {mdKey}
-                            </span>
+                <ScrollArea className="h-0 min-h-0 flex-1">
+                    <div className="space-y-3 p-4 break-words [overflow-wrap:anywhere]">
+                        {showSkeleton && <MarkdownViewerSkeleton />}
+
+                        {phase === "error" && (
+                            <p
+                                className="text-sm break-words text-destructive"
+                                role="alert"
+                            >
+                                {error ??
+                                    "Something went wrong while loading the preview."}
+                            </p>
+                        )}
+
+                        {showMarkdown && (
+                            <MarkdownPreview
+                                content={markdown}
+                                className="min-w-0 break-words [overflow-wrap:anywhere]"
+                            />
                         )}
                     </div>
+                </ScrollArea>
+            </div>
 
-                    <ScrollArea className="h-[min(60vh,25rem)] ">
-                        <div className="space-y-3 p-4">
-                            {showSkeleton && <MarkdownViewerSkeleton />}
-
-                            {phase === "error" && (
-                                <p
-                                    className="text-sm text-destructive"
-                                    role="alert"
-                                >
-                                    {error ??
-                                        "Something went wrong while loading the preview."}
-                                </p>
-                            )}
-
-                            {showMarkdown && (
-                                <MarkdownPreview content={markdown} />
-                            )}
-                        </div>
-                    </ScrollArea>
-                </div>
-
-                <div className="flex justify-end">
-                    <Button onClick={() => void next()} disabled={!canContinue}>
-                        Next — select topics
-                    </Button>
-                </div>
+            <div className="flex shrink-0 justify-end pb-2">
+                <Button onClick={() => void next()} disabled={!canContinue}>
+                    Next — select topics
+                </Button>
             </div>
         </div>
     );

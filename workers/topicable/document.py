@@ -1,4 +1,4 @@
-"""Document -> markdown conversion (text path or Docling for images)."""
+"""Document -> markdown conversion (MarkItDown text path or Docling for images)."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 from docling.document_converter import DocumentConverter
+from markitdown import MarkItDown
 
 log = logging.getLogger("topicable.document")
 
@@ -34,17 +35,28 @@ IMAGE_MIMES = {
     "image/heic",
 }
 
-_converter: DocumentConverter | None = None
+_docling: DocumentConverter | None = None
+_markitdown: MarkItDown | None = None
 
 
-def _get_converter() -> DocumentConverter:
-    global _converter
-    if _converter is None:
+def _get_docling() -> DocumentConverter:
+    global _docling
+    if _docling is None:
         log.info("initializing Docling DocumentConverter (first use)")
         t0 = time.perf_counter()
-        _converter = DocumentConverter()
+        _docling = DocumentConverter()
         log.info("Docling ready in %.3fs", time.perf_counter() - t0)
-    return _converter
+    return _docling
+
+
+def _get_markitdown() -> MarkItDown:
+    global _markitdown
+    if _markitdown is None:
+        log.info("initializing MarkItDown (first use)")
+        t0 = time.perf_counter()
+        _markitdown = MarkItDown(enable_plugins=False)
+        log.info("MarkItDown ready in %.3fs", time.perf_counter() - t0)
+    return _markitdown
 
 
 def is_image_file(filename: str, content_type: str | None = None) -> bool:
@@ -120,6 +132,16 @@ def _docx_has_images(source: bytes) -> bool:
         return True
 
 
+def _as_markdown_document(title: str, body: str) -> str:
+    """Always return a complete `.md` document (UTF-8 markdown, not plain text)."""
+    body = (body or "").strip()
+    if not body:
+        return f"# {title}\n\n_(empty document)_\n"
+    if body.lstrip().startswith("#"):
+        return body if body.endswith("\n") else body + "\n"
+    return f"# {title}\n\n{body}\n"
+
+
 def convert_with_docling(source: bytes, filename: str) -> str:
     suffix = Path(filename).suffix or ".bin"
     log.info("docling convert start filename=%s suffix=%s bytes=%d", filename, suffix, len(source))
@@ -128,8 +150,10 @@ def convert_with_docling(source: bytes, filename: str) -> str:
         tmp.write(source)
         tmp.flush()
         log.debug("docling temp file=%s", tmp.name)
-        result = _get_converter().convert(tmp.name)
+        result = _get_docling().convert(tmp.name)
         markdown = result.document.export_to_markdown()
+    title = Path(filename).stem
+    markdown = _as_markdown_document(title, markdown)
     log.info(
         "docling convert done chars=%d elapsed=%.3fs",
         len(markdown),
@@ -138,65 +162,51 @@ def convert_with_docling(source: bytes, filename: str) -> str:
     return markdown
 
 
-def extract_text_markdown(source: bytes, filename: str) -> str:
-    """Build a markdown document from plain text / PDF text / DOCX text."""
-    suffix = Path(filename).suffix.lower()
+def convert_with_markitdown(
+    source: bytes,
+    filename: str,
+    content_type: str | None = None,
+) -> str:
+    """Non-image branch: MarkItDown → structured markdown file."""
+    suffix = Path(filename).suffix.lower() or None
     title = Path(filename).stem
-    log.debug("text extract start filename=%s suffix=%s", filename, suffix)
-    t0 = time.perf_counter()
-
-    if suffix == ".pdf":
-        text = _extract_pdf_text(source)
-    elif suffix == ".docx":
-        text = _extract_docx_text(source)
-    elif suffix in {".txt", ".md", ".markdown", ".csv", ".json", ".xml", ".html", ".htm"}:
-        text = source.decode("utf-8", errors="replace")
-        log.debug("decoded text-like file as utf-8 chars=%d", len(text))
-    else:
-        try:
-            text = source.decode("utf-8")
-            log.debug("decoded unknown suffix as utf-8 chars=%d", len(text))
-        except UnicodeDecodeError:
-            log.info("binary non-image file %s -> falling back to docling", filename)
-            return convert_with_docling(source, filename)
-
-    text = text.strip()
-    if not text:
-        log.warning("extracted empty text from %s", filename)
-        return f"# {title}\n\n_(empty document)_\n"
-
-    if suffix in {".md", ".markdown"}:
-        markdown = text if text.startswith("#") else f"# {title}\n\n{text}\n"
-    else:
-        markdown = f"# {title}\n\n{text}\n"
+    mime = None
+    if content_type:
+        mime = content_type.split(";")[0].strip().lower() or None
+    if not mime:
+        mime, _ = mimetypes.guess_type(filename)
 
     log.info(
-        "text extract done chars=%d elapsed=%.3fs",
+        "markitdown convert start filename=%s suffix=%s mime=%s bytes=%d",
+        filename,
+        suffix,
+        mime,
+        len(source),
+    )
+    t0 = time.perf_counter()
+    try:
+        result = _get_markitdown().convert_stream(
+            io.BytesIO(source),
+            file_extension=suffix,
+        )
+        body = (getattr(result, "text_content", None) or getattr(result, "markdown", None) or "")
+        if isinstance(body, bytes):
+            body = body.decode("utf-8", errors="replace")
+    except Exception as exc:
+        log.warning(
+            "markitdown failed for %s (%s) — falling back to docling",
+            filename,
+            exc,
+        )
+        return convert_with_docling(source, filename)
+
+    markdown = _as_markdown_document(title, str(body))
+    log.info(
+        "markitdown convert done chars=%d elapsed=%.3fs",
         len(markdown),
         time.perf_counter() - t0,
     )
     return markdown
-
-
-def _extract_pdf_text(source: bytes) -> str:
-    from pypdf import PdfReader
-
-    reader = PdfReader(io.BytesIO(source))
-    parts: list[str] = []
-    for i, page in enumerate(reader.pages):
-        page_text = page.extract_text() or ""
-        log.debug("pdf page=%d text_chars=%d", i, len(page_text))
-        parts.append(page_text)
-    return "\n\n".join(p.strip() for p in parts if p and p.strip())
-
-
-def _extract_docx_text(source: bytes) -> str:
-    from docx import Document
-
-    doc = Document(io.BytesIO(source))
-    paras = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
-    log.debug("docx paragraphs_with_text=%d", len(paras))
-    return "\n\n".join(paras)
 
 
 def to_markdown(
@@ -209,7 +219,7 @@ def to_markdown(
     """
     Convert source bytes to markdown.
 
-    Returns (markdown, method) where method is 'docling' or 'text'.
+    Returns (markdown, method) where method is 'docling' or 'markitdown'.
     When force_docling is True, always uses Docling (for testing).
     """
     log.debug(
@@ -234,8 +244,8 @@ def to_markdown(
         filename,
         image_file,
         has_images,
-        "docling" if needs_docling else "text",
+        "docling" if needs_docling else "markitdown",
     )
     if needs_docling:
         return convert_with_docling(source, filename), "docling"
-    return extract_text_markdown(source, filename), "text"
+    return convert_with_markitdown(source, filename, content_type), "markitdown"

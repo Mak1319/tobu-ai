@@ -16,7 +16,7 @@ export function MarkdownPreview({ content, className }: MarkdownPreviewProps) {
     return (
         <div
             className={cn(
-                "max-w-none text-sm leading-relaxed text-foreground",
+                "min-w-0 max-w-none text-sm leading-relaxed break-words text-foreground [overflow-wrap:anywhere]",
                 className,
             )}
         >
@@ -44,7 +44,7 @@ export function MarkdownPreview({ content, className }: MarkdownPreviewProps) {
                         </h4>
                     ),
                     p: ({ children }) => (
-                        <p className="mb-3 text-foreground/90 last:mb-0">
+                        <p className="mb-3 break-words text-foreground/90 last:mb-0 [overflow-wrap:anywhere]">
                             {children}
                         </p>
                     ),
@@ -59,17 +59,19 @@ export function MarkdownPreview({ content, className }: MarkdownPreviewProps) {
                         </ol>
                     ),
                     li: ({ children }) => (
-                        <li className="text-foreground/90">{children}</li>
+                        <li className="break-words text-foreground/90 [overflow-wrap:anywhere]">
+                            {children}
+                        </li>
                     ),
                     blockquote: ({ children }) => (
-                        <blockquote className="mb-3 border-l-2 border-border pl-3 text-muted-foreground italic">
+                        <blockquote className="mb-3 border-l-2 border-border pl-3 text-muted-foreground italic break-words [overflow-wrap:anywhere]">
                             {children}
                         </blockquote>
                     ),
                     a: ({ href, children }) => (
                         <a
                             href={href}
-                            className="font-medium text-primary underline underline-offset-2"
+                            className="font-medium break-all text-primary underline underline-offset-2"
                             target="_blank"
                             rel="noreferrer"
                         >
@@ -86,7 +88,7 @@ export function MarkdownPreview({ content, className }: MarkdownPreviewProps) {
                     ),
                     hr: () => <hr className="my-4 border-border" />,
                     table: ({ children }) => (
-                        <div className="mb-3 overflow-x-auto last:mb-0">
+                        <div className="mb-3 max-w-full overflow-x-auto last:mb-0">
                             <table className="w-full border-collapse text-left text-sm">
                                 {children}
                             </table>
@@ -101,7 +103,7 @@ export function MarkdownPreview({ content, className }: MarkdownPreviewProps) {
                         <th className="px-3 py-2 font-medium">{children}</th>
                     ),
                     td: ({ children }) => (
-                        <td className="border-t border-border px-3 py-2 align-top">
+                        <td className="border-t border-border px-3 py-2 align-top break-words [overflow-wrap:anywhere]">
                             {children}
                         </td>
                     ),
@@ -109,19 +111,19 @@ export function MarkdownPreview({ content, className }: MarkdownPreviewProps) {
                         const isBlock = Boolean(className);
                         if (isBlock) {
                             return (
-                                <code className="font-mono text-xs leading-relaxed">
+                                <code className="font-mono text-xs leading-relaxed break-all whitespace-pre-wrap">
                                     {children}
                                 </code>
                             );
                         }
                         return (
-                            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em]">
+                            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em] break-all">
                                 {children}
                             </code>
                         );
                     },
                     pre: ({ children }) => (
-                        <pre className="mb-3 overflow-x-auto rounded-lg bg-muted p-3 last:mb-0">
+                        <pre className="mb-3 max-w-full overflow-x-auto rounded-lg bg-muted p-3 whitespace-pre-wrap wrap-break-word last:mb-0 [overflow-wrap:anywhere]">
                             {children}
                         </pre>
                     ),

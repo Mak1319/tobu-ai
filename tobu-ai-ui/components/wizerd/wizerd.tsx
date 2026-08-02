@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { useParams } from "next/navigation"
 import { ListTodo } from "lucide-react"
 import { defineStepper } from "@stepperize/react"
@@ -32,7 +32,6 @@ import { useTopicSelectionFromHash } from "@/lib/wizard/use-topic-selection"
 import {
   isWizardStepId,
   patchWizardStep,
-  resolveWizardStep,
   type WizardStepId,
 } from "@/lib/wizard/steps"
 
@@ -81,54 +80,19 @@ function deriveTodos(
   ]
 }
 
-export default function Wizard() {
+type WizardProps = {
+  initialStep?: WizardStepId
+}
+
+export default function Wizard({ initialStep = "upload" }: WizardProps) {
   const params = useParams()
   const chatId = (params.chatId ?? params.id) as string | undefined
 
-  const [hydrated, setHydrated] = useState(false)
-  const [step, setStep] = useState<WizardStepId>("upload")
-
-  useEffect(() => {
-    if (!chatId) {
-      setHydrated(true)
-      return
-    }
-
-    let cancelled = false
-    const load = async () => {
-      try {
-        const res = await fetch(
-          `/api/chat/${encodeURIComponent(chatId)}/study`,
-        )
-        const data = (await res.json().catch(() => null)) as {
-          ok?: boolean
-          study?: { wizardStep?: string; status?: string }
-        } | null
-
-        if (cancelled) return
-
-        if (data?.ok && data.study) {
-          setStep(
-            resolveWizardStep({
-              wizardStep: data.study.wizardStep,
-              status: data.study.status,
-            }),
-          )
-        }
-      } finally {
-        if (!cancelled) setHydrated(true)
-      }
-    }
-
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [chatId])
+  const [step, setStep] = useState<WizardStepId>(initialStep)
 
   const stepper = wizardSteps.useStepper({
-    step: hydrated ? step : undefined,
-    defaultStep: "upload",
+    step,
+    defaultStep: initialStep,
     beforeStepChange: (ctx) => {
       if (
         ctx.direction === "prev" ||
@@ -155,7 +119,7 @@ export default function Wizard() {
   const currentStepId = isWizardStepId(stepper.id) ? stepper.id : step
 
   const agent = useTopicSelectionFromHash(chatId, {
-    enabled: hydrated && currentStepId === "agentic",
+    enabled: currentStepId === "agentic",
   })
 
   const todos = useMemo(
@@ -167,17 +131,9 @@ export default function Wizard() {
   const queueComplete =
     currentStepId === "agentic" && agent.selectionPersisted
 
-  if (!hydrated) {
-    return (
-      <div className="flex h-full w-full items-center justify-center p-6 text-sm text-muted-foreground">
-        Restoring study progress…
-      </div>
-    )
-  }
-
   return (
     <div className="relative h-full w-full">
-      <div className="h-full w-full overflow-auto p-4 sm:p-6">
+      <div className="h-full min-h-0 w-full overflow-auto p-4 sm:p-6">
         {stepper.match({
           upload: () => <UploadStep next={stepper.next} />,
           preview: () => <PreviewDocument next={stepper.next} />,

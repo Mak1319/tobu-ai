@@ -6,11 +6,11 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import MessagesState
 from langgraph.types import interrupt
 
+from shared.checkpointer import get_checkpointer
 from shared.redis_bus import (
     AGENT_ANSWER_ANALYZER,
     AGENT_BROADCAST,
@@ -379,4 +379,4 @@ builder.add_conditional_edges(
     {"ask_again": "humanize_and_ask", "end": END},
 )
 
-graph = builder.compile(checkpointer=MemorySaver())
+graph = builder.compile(checkpointer=get_checkpointer())

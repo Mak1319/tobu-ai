@@ -78,9 +78,13 @@ class ObjectStore:
         return data, metadata
 
     def upload_markdown(self, key: str, markdown: str) -> str:
+        # Always persist as a real markdown object (`*.md`), never text/plain.
+        if not key.lower().endswith(".md"):
+            key = f"{key}.md"
         body = markdown.encode("utf-8")
+        filename = key.rsplit("/", 1)[-1]
         log.debug(
-            "put_object Bucket=%s Key=%s bytes=%d",
+            "put_object Bucket=%s Key=%s bytes=%d content_type=text/markdown",
             self.settings.processed_bucket,
             key,
             len(body),
@@ -90,6 +94,8 @@ class ObjectStore:
             Key=key,
             Body=body,
             ContentType="text/markdown; charset=utf-8",
+            ContentDisposition=f'inline; filename="{filename}"',
+            Metadata={"format": "markdown"},
         )
         log.info(
             "uploaded s3://%s/%s bytes=%d",

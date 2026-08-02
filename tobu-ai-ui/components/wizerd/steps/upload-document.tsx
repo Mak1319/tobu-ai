@@ -15,12 +15,7 @@ interface Step1PageProps {
 }
 
 type Phase =
-    | "idle"
-    | "uploaded"
-    | "waiting_worker"
-    | "ready"
-    | "error"
-    | "timeout";
+    "idle" | "uploaded" | "waiting_worker" | "ready" | "error" | "timeout";
 
 type DoclingResultEvent = {
     session_id: string | null;
@@ -225,8 +220,7 @@ export default function Step1Page({ next }: Step1PageProps) {
                         void patchStudy(chatId, {
                             status: "failed",
                             fileHash: pendingHashRef.current ?? undefined,
-                            processingError:
-                                data.error ?? "processing failed",
+                            processingError: data.error ?? "processing failed",
                         });
                         return;
                     }
@@ -274,9 +268,7 @@ export default function Step1Page({ next }: Step1PageProps) {
                     );
                     stopListening();
                 } else {
-                    setStatusLabel(
-                        `Reconnecting to ${DOCLING_STREAM_LABEL}…`,
-                    );
+                    setStatusLabel(`Reconnecting to ${DOCLING_STREAM_LABEL}…`);
                 }
             };
         },
@@ -286,18 +278,18 @@ export default function Step1Page({ next }: Step1PageProps) {
     useEffect(() => () => stopListening(), [stopListening]);
 
     const waiting =
-        phase === "uploaded" ||
-        phase === "waiting_worker" ||
-        phase === "ready";
+        phase === "uploaded" || phase === "waiting_worker" || phase === "ready";
 
     return (
         <div className="flex flex-1 flex-col items-center justify-center gap-4">
             <FileUpload05
                 chatId={chatId}
-                disabled={waiting && phase !== "error" && phase !== "timeout"}
+                disabled={waiting}
                 onUploadComplete={({ contentHash, mdKey }) => {
                     setPhase("uploaded");
-                    setStatusLabel("Upload complete — opening stream listener…");
+                    setStatusLabel(
+                        "Upload complete — opening stream listener…",
+                    );
                     writeWizardHash(chatId, { fileHash: contentHash, mdKey });
                     void patchStudy(chatId, {
                         status: "uploaded",
@@ -335,9 +327,9 @@ export default function Step1Page({ next }: Step1PageProps) {
                                     {DOCLING_STREAM_LABEL}
                                 </code>{" "}
                                 by <code className="font-mono">session_id</code>{" "}
-                                = <code className="font-mono">{chatId}</code>
-                                . On match, SSE notifies this page and the
-                                wizard advances.
+                                = <code className="font-mono">{chatId}</code>.
+                                On match, SSE notifies this page and the wizard
+                                advances.
                                 {remainMs != null && (
                                     <>
                                         {" "}

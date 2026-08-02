@@ -58,6 +58,9 @@ async def lifespan(app: FastAPI):
 
     _worker_stop[0] = True
     close_bus()
+    from shared.checkpointer import close_checkpointer
+
+    close_checkpointer()
     await client.close()
 
 

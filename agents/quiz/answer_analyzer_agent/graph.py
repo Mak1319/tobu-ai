@@ -5,11 +5,11 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import MessagesState
 
 import database
+from shared.checkpointer import get_checkpointer
 
 
 def _normalize(text: str) -> str:
@@ -88,4 +88,4 @@ builder.add_edge(START, "evaluate")
 builder.add_edge("evaluate", "store")
 builder.add_edge("store", END)
 
-graph = builder.compile(checkpointer=MemorySaver())
+graph = builder.compile(checkpointer=get_checkpointer())

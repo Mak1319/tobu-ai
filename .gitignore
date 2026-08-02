@@ -18,3 +18,4 @@ worker/gliner-test
 /worker/gliner-train
 /workers/gliner-test
 .cursor
+.run/

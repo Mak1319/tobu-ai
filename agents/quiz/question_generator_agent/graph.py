@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import MessagesState
 from langgraph.types import interrupt
+
+from shared.checkpointer import get_checkpointer
 
 
 class QuestionGeneratorState(MessagesState):
@@ -226,4 +227,4 @@ builder.add_conditional_edges(
 )
 builder.add_edge("mark_done", END)
 
-graph = builder.compile(checkpointer=MemorySaver())
+graph = builder.compile(checkpointer=get_checkpointer())
