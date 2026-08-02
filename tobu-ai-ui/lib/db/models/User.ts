@@ -9,10 +9,18 @@ import { Schema, model, models, Types } from "mongoose"
  * `sessions[]` and `preferences[]` are refs into the Session / Preferences
  * collections — we keep them as ObjectId[] to avoid pulling full sub-docs.
  *
+ * `chats[]` stores chat sessions started by this user (sidebar history).
+ *
  * `twoFactor` holds TOTP data for the QR-code authenticator flow.
  *
  * `accounts[]` is a ref to linked providers (email + future Google/Apple).
  */
+export interface IUserChat {
+  chatId: string
+  title: string
+  createdAt: Date
+}
+
 export interface IUser {
   _id: Types.ObjectId
   name: string
@@ -26,12 +34,22 @@ export interface IUser {
     verifiedAt?: Date
     recoveryCodes: string[] // hashed (sha-256)
   }
+  chats: IUserChat[]
   sessions: Types.ObjectId[]
   preferences: Types.ObjectId[]
   accounts: Types.ObjectId[]
   createdAt: Date
   updatedAt: Date
 }
+
+const userChatSchema = new Schema<IUserChat>(
+  {
+    chatId: { type: String, required: true },
+    title: { type: String, required: true, trim: true, maxlength: 120, default: "New chat" },
+    createdAt: { type: Date, required: true, default: Date.now },
+  },
+  { _id: false },
+)
 
 const userSchema = new Schema<IUser>(
   {
@@ -46,6 +64,7 @@ const userSchema = new Schema<IUser>(
       verifiedAt: { type: Date },
       recoveryCodes: { type: [String], default: [] },
     },
+    chats: { type: [userChatSchema], default: [] },
     sessions: [{ type: Schema.Types.ObjectId, ref: "Session" }],
     preferences: [{ type: Schema.Types.ObjectId, ref: "Preferences" }],
     accounts: [{ type: Schema.Types.ObjectId, ref: "Account" }],
@@ -54,5 +73,6 @@ const userSchema = new Schema<IUser>(
 )
 
 userSchema.index({ emailNormalized: 1 })
+userSchema.index({ "chats.chatId": 1 })
 
 export const User = models.User || model<IUser>("User", userSchema)

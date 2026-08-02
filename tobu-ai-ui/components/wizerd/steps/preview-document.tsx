@@ -108,7 +108,7 @@ export default function PreviewDocument({ next }: PreviewDocumentPageProps) {
                 setPhase("error");
                 setStatusLabel("Missing file hash");
                 setError(
-                    "No processed document hash. Go back and wait for upload processing to finish.",
+                    "No processed document hash. Re-open this chat after upload processing finishes, or start a new chat.",
                 );
                 return;
             }

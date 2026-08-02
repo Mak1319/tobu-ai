@@ -13,6 +13,7 @@ import {
     MessageSquare,
     Sparkles,
 } from "lucide-react";
+import { TobuLogo } from "@/components/tobu-logo";
 
 type NavItem = { title: string; description: string };
 type NavLink = { label: string; dropdown: boolean; items?: NavItem[] };
@@ -233,9 +234,7 @@ export default function Hero2() {
                     href="/"
                     className="flex items-center gap-2.5 text-[19px] font-semibold tracking-tight"
                 >
-                    <span className="grid size-8 place-items-center rounded-lg bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900">
-                        <Sparkles className="size-4" />
-                    </span>
+                    <TobuLogo size={32} priority className="size-8" />
                     Tobu AI
                 </Link>
 
@@ -428,8 +427,8 @@ export default function Hero2() {
                 <div className="relative overflow-hidden rounded-t-2xl border-x-8 border-t-8 border-neutral-200 bg-white shadow-[0_-8px_40px_-12px_rgba(0,0,0,0.08)] dark:border-neutral-800 dark:bg-neutral-900 dark:shadow-[0_-8px_40px_-12px_rgba(0,0,0,0.4)]">
                     <div className="flex flex-col sm:flex-row">
                         <div className="shrink-0 border-b border-neutral-100 p-7 sm:w-[280px] sm:border-b-0 sm:border-r dark:border-neutral-800">
-                            <div className="mb-4 grid size-9 place-items-center rounded-full bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900">
-                                <Sparkles className="size-4" />
+                            <div className="mb-4 size-9 overflow-hidden rounded-full">
+                                <TobuLogo size={36} className="size-9" />
                             </div>
                             <p className="text-[13px] text-neutral-400 dark:text-neutral-500">
                                 Tobu AI

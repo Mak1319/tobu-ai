@@ -13,6 +13,11 @@ export interface IChatStudy {
   mdKey?: string
   selectedSubject?: string
   selectedTopics: string[]
+  /**
+   * Furthest wizard step reached. Users cannot navigate back behind this.
+   * `upload` → `preview` → `agentic` (forward-only).
+   */
+  wizardStep: "upload" | "preview" | "agentic"
   /** Wizard pipeline status for this chat. */
   status:
     | "uploaded"
@@ -34,6 +39,12 @@ const chatStudySchema = new Schema<IChatStudy>(
     mdKey: { type: String },
     selectedSubject: { type: String },
     selectedTopics: { type: [String], default: [] },
+    wizardStep: {
+      type: String,
+      enum: ["upload", "preview", "agentic"],
+      default: "upload",
+      index: true,
+    },
     status: {
       type: String,
       enum: [

@@ -15,8 +15,7 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { LayoutBottomIcon } from "@hugeicons/core-free-icons"
+import { TobuLogo } from "@/components/tobu-logo"
 
 export function LoginForm({
     className,
@@ -51,16 +50,10 @@ export function LoginForm({
                 <FieldGroup>
                     <div className="flex flex-col items-center gap-2 text-center">
                         <a
-                            href="#"
+                            href="/"
                             className="flex flex-col items-center gap-2 font-medium"
                         >
-                            <div className="flex size-8 items-center justify-center rounded-md">
-                                <HugeiconsIcon
-                                    icon={LayoutBottomIcon}
-                                    strokeWidth={2}
-                                    className="size-6"
-                                />
-                            </div>
+                            <TobuLogo size={40} className="size-10" priority />
                             <span className="sr-only">Tobu AI</span>
                         </a>
                         <h1 className="text-xl font-bold">

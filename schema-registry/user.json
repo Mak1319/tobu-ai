@@ -45,6 +45,20 @@
       "items": { "type": "string" },
       "description": "ObjectId refs to Account"
     },
+    "chats": {
+      "type": "array",
+      "description": "Chat sessions started by this user (sidebar history)",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["chatId", "title", "createdAt"],
+        "properties": {
+          "chatId": { "type": "string" },
+          "title": { "type": "string", "maxLength": 120 },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
     "createdAt": { "type": "string", "format": "date-time" },
     "updatedAt": { "type": "string", "format": "date-time" }
   }

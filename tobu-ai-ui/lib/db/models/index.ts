@@ -1,4 +1,4 @@
-export { User, type IUser } from "./User"
+export { User, type IUser, type IUserChat } from "./User"
 export { Session, type ISession } from "./Session"
 export { Preferences, type IPreferences } from "./Preferences"
 export { Account, type IAccount } from "./Account"

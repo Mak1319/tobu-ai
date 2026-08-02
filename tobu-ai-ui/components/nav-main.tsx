@@ -21,6 +21,7 @@ import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
 
 export function NavMain({
   items,
+  label = "Platform",
 }: {
   items: {
     title: string
@@ -32,10 +33,11 @@ export function NavMain({
       url: string
     }[]
   }[]
+  label?: string
 }) {
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Platform</SidebarGroupLabel>
+      <SidebarGroupLabel>{label}</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => (
           <Collapsible

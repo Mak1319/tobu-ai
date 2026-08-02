@@ -8,20 +8,29 @@ import {
   User,
   connectToDatabase,
 } from "@/lib/db/models"
+import {
+  canMoveWizardStep,
+  isWizardStepId,
+  resolveWizardStep,
+  type WizardStepId,
+} from "@/lib/wizard/steps"
 
 export const runtime = "nodejs"
 
 const CHAT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
 
 const Body = z.object({
-  status: z.enum([
-    "uploaded",
-    "processing",
-    "processed",
-    "topics_selected",
-    "live",
-    "failed",
-  ]),
+  status: z
+    .enum([
+      "uploaded",
+      "processing",
+      "processed",
+      "topics_selected",
+      "live",
+      "failed",
+    ])
+    .optional(),
+  wizardStep: z.enum(["upload", "preview", "agentic"]).optional(),
   fileHash: z.string().min(8).max(128).optional(),
   mdKey: z.string().min(1).max(200).optional(),
   selectedSubject: z.string().min(1).max(200).optional(),
@@ -35,6 +44,7 @@ const Body = z.object({
  * Upsert chat study session prefs (hash, subject/topics, pipeline status).
  * Also mirrors last study choice onto the user's Preferences doc when signed in,
  * and updates UploadedFile processing fields when status is processed/failed.
+ * `wizardStep` is forward-only — never moves backward.
  */
 export async function PUT(
   request: Request,
@@ -63,11 +73,57 @@ export async function PUT(
     )
   }
 
+  if (
+    parsed.data.status === undefined &&
+    parsed.data.wizardStep === undefined &&
+    parsed.data.fileHash === undefined &&
+    parsed.data.mdKey === undefined &&
+    parsed.data.selectedSubject === undefined &&
+    parsed.data.selectedTopics === undefined &&
+    parsed.data.processingError === undefined
+  ) {
+    return NextResponse.json(
+      { ok: false, error: "Empty update" },
+      { status: 400 },
+    )
+  }
+
   const session = await getSession()
   const data = parsed.data
 
   try {
     await connectToDatabase()
+
+    const existing = await ChatStudy.findOne({ chatId })
+      .select({ wizardStep: 1, status: 1 })
+      .lean<{ wizardStep?: WizardStepId; status?: string } | null>()
+
+    const currentStep = resolveWizardStep({
+      wizardStep: existing?.wizardStep,
+      status: existing?.status,
+    })
+
+    let nextWizardStep: WizardStepId | undefined
+    if (data.wizardStep) {
+      if (!canMoveWizardStep(currentStep, data.wizardStep)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: `Cannot move wizard from ${currentStep} back to ${data.wizardStep}`,
+          },
+          { status: 409 },
+        )
+      }
+      nextWizardStep = data.wizardStep
+    } else if (data.status === "processed" && currentStep === "upload") {
+      // Upload finished — lock the user onto preview.
+      nextWizardStep = "preview"
+    } else if (
+      data.status === "topics_selected" ||
+      data.status === "live"
+    ) {
+      nextWizardStep = "agentic"
+    }
 
     const study = await ChatStudy.findOneAndUpdate(
       { chatId },
@@ -75,7 +131,8 @@ export async function PUT(
         $set: {
           chatId,
           ...(session.userId ? { userId: session.userId } : {}),
-          status: data.status,
+          ...(data.status ? { status: data.status } : {}),
+          ...(nextWizardStep ? { wizardStep: nextWizardStep } : {}),
           ...(data.fileHash ? { fileHash: data.fileHash } : {}),
           ...(data.mdKey ? { mdKey: data.mdKey } : {}),
           ...(data.selectedSubject
@@ -86,7 +143,9 @@ export async function PUT(
             : {}),
           ...(data.status === "failed"
             ? { processingError: data.processingError ?? "processing failed" }
-            : { processingError: undefined }),
+            : data.status
+              ? { processingError: undefined }
+              : {}),
         },
       },
       { upsert: true, new: true },
@@ -111,7 +170,6 @@ export async function PUT(
       )
     }
 
-    // Mirror last study selection onto user Preferences when topics are chosen.
     if (
       session.userId &&
       data.status === "topics_selected" &&
@@ -141,6 +199,8 @@ export async function PUT(
       ok: true,
       chatId,
       status: study.status,
+      wizardStep:
+        study.wizardStep ?? resolveWizardStep({ status: study.status }),
       fileHash: study.fileHash ?? null,
       mdKey: study.mdKey ?? null,
       selectedSubject: study.selectedSubject ?? null,
@@ -173,7 +233,14 @@ export async function GET(
         { status: 404 },
       )
     }
-    return NextResponse.json({ ok: true, study })
+    const wizardStep = resolveWizardStep({
+      wizardStep: isWizardStepId(study.wizardStep) ? study.wizardStep : null,
+      status: study.status,
+    })
+    return NextResponse.json({
+      ok: true,
+      study: { ...study, wizardStep },
+    })
   } catch (err) {
     const message = err instanceof Error ? err.message : "Database error"
     return NextResponse.json({ ok: false, error: message }, { status: 500 })

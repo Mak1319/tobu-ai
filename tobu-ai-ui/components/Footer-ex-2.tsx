@@ -1,326 +1,306 @@
 "use client";
 
+import Link from "next/link";
 import { motion, Variants } from "framer-motion";
 import Image from "next/image";
+import { TobuLogo } from "@/components/tobu-logo";
 
-// ─── Avatar data — real photos via DiceBear (open-source, no key needed) ──────
 const AVATARS = [
-  {
-    id: 1,
-    src: "https://api.dicebear.com/9.x/notionists/svg?seed=JK&backgroundColor=b6e3f4",
-  },
-  {
-    id: 2,
-    src: "https://api.dicebear.com/9.x/notionists/svg?seed=AM&backgroundColor=c0aede",
-  },
-  {
-    id: 3,
-    src: "https://api.dicebear.com/9.x/notionists/svg?seed=SL&backgroundColor=ffdfbf",
-  },
-  {
-    id: 4,
-    src: "https://api.dicebear.com/9.x/notionists/svg?seed=TR&backgroundColor=d1d4f9",
-  },
-  {
-    id: 5,
-    src: "https://api.dicebear.com/9.x/notionists/svg?seed=PW&backgroundColor=ffd5dc",
-  },
+    {
+        id: 1,
+        src: "https://api.dicebear.com/9.x/notionists/svg?seed=JK&backgroundColor=b6e3f4",
+    },
+    {
+        id: 2,
+        src: "https://api.dicebear.com/9.x/notionists/svg?seed=AM&backgroundColor=c0aede",
+    },
+    {
+        id: 3,
+        src: "https://api.dicebear.com/9.x/notionists/svg?seed=SL&backgroundColor=ffdfbf",
+    },
+    {
+        id: 4,
+        src: "https://api.dicebear.com/9.x/notionists/svg?seed=TR&backgroundColor=d1d4f9",
+    },
+    {
+        id: 5,
+        src: "https://api.dicebear.com/9.x/notionists/svg?seed=PW&backgroundColor=ffd5dc",
+    },
 ];
 
-// ─── Motion variants ──────────────────────────────────────────────────────────
 const stagger: Variants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1, delayChildren: 0.05 },
-  },
+    hidden: { opacity: 0 },
+    visible: {
+        opacity: 1,
+        transition: { staggerChildren: 0.1, delayChildren: 0.05 },
+    },
 };
 
 const slide: Variants = {
-  hidden: { opacity: 0, y: 16 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.45, ease: "easeOut" },
-  },
+    hidden: { opacity: 0, y: 16 },
+    visible: {
+        opacity: 1,
+        y: 0,
+        transition: { duration: 0.45, ease: "easeOut" },
+    },
 };
 
 const panelVariant: Variants = {
-  hidden: { opacity: 0, scale: 0.975 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    transition: { duration: 0.55, ease: "easeOut", delay: 0.1 },
-  },
+    hidden: { opacity: 0, scale: 0.975 },
+    visible: {
+        opacity: 1,
+        scale: 1,
+        transition: { duration: 0.55, ease: "easeOut", delay: 0.1 },
+    },
 };
 
 const currentYear = new Date().getFullYear();
 
 function AvatarStack() {
-  return (
-    <motion.div variants={slide} className="flex items-center">
-      <div className="flex -space-x-2.5">
-        {AVATARS.map((a) => (
-          <div
-            key={a.id}
-            className="w-10 h-10 rounded-sm border-2 border-white overflow-hidden bg-zinc-100 select-none flex-shrink-0"
-          >
-            <Image
-              src={a.src}
-              alt="team member"
-              width={40}
-              height={40}
-              className="w-full h-full object-cover"
-              unoptimized
-            />
-          </div>
-        ))}
-      </div>
-    </motion.div>
-  );
+    return (
+        <motion.div variants={slide} className="flex items-center">
+            <div className="flex -space-x-2.5">
+                {AVATARS.map((a) => (
+                    <div
+                        key={a.id}
+                        className="flex h-10 w-10 flex-shrink-0 select-none overflow-hidden rounded-sm border-2 border-white bg-neutral-100 dark:border-neutral-950 dark:bg-neutral-800"
+                    >
+                        <Image
+                            src={a.src}
+                            alt="student"
+                            width={40}
+                            height={40}
+                            className="h-full w-full object-cover"
+                            unoptimized
+                        />
+                    </div>
+                ))}
+            </div>
+        </motion.div>
+    );
 }
 
 function LeftHeading() {
-  return (
-    <motion.h2
-      variants={slide}
-      className="text-[1.85rem] sm:text-[2.1rem] leading-[1.18] tracking-[-0.025em] text-zinc-900"
-      style={{ fontFamily: "'Geist', 'Inter', system-ui, sans-serif" }}
-    >
-      We build digital products
-      <br />
-      that help ambitious
-      <br />
-      businesses grow faster.{" "}
-      <span role="img" aria-label="heart">
-        👨🏾‍💻
-      </span>
-    </motion.h2>
-  );
+    return (
+        <motion.h2
+            variants={slide}
+            className="text-[1.85rem] leading-[1.18] tracking-[-0.025em] text-neutral-900 sm:text-[2.1rem] dark:text-neutral-50"
+            style={{ fontFamily: "'Geist', 'Inter', system-ui, sans-serif" }}
+        >
+            Tobu AI helps students
+            <br />
+            learn faster from their
+            <br />
+            own study materials.
+        </motion.h2>
+    );
 }
 
 function CTACard() {
-  return (
-    <motion.div
-      variants={slide}
-      className="flex items-center gap-4 rounded-2xl px-5 py-4 w-fit bg-gray-100"
-    >
-      <motion.button
-        whileHover={{ scale: 1.03 }}
-        whileTap={{ scale: 0.97 }}
-        className="text-sm font-semibold px-5 py-2.5 rounded-xl whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 bg-black text-white cursor-pointer"
-      >
-        Let&apos;s talk
-      </motion.button>
-      <div
-        className="text-[12px] leading-[1.6]"
-        style={{
-          color: "#71717a",
-          fontFamily: "'Geist', 'Inter', system-ui, sans-serif",
-        }}
-      >
-        <p>Book a free strategy call.</p>
-        <p>Tell us about your project.</p>
-      </div>
-    </motion.div>
-  );
+    return (
+        <motion.div
+            variants={slide}
+            className="flex w-fit items-center gap-4 rounded-2xl bg-neutral-100 px-5 py-4 dark:bg-neutral-900"
+        >
+            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                <Link
+                    href="/auth/signup"
+                    className="whitespace-nowrap rounded-xl bg-neutral-900 px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-neutral-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 dark:focus-visible:ring-neutral-500"
+                >
+                    Start free
+                </Link>
+            </motion.div>
+            <div
+                className="text-[12px] leading-[1.6] text-neutral-500 dark:text-neutral-400"
+                style={{ fontFamily: "'Geist', 'Inter', system-ui, sans-serif" }}
+            >
+                <p>Create your account in minutes.</p>
+                <p>No credit card required.</p>
+            </div>
+        </motion.div>
+    );
 }
 
 function TrustBadges() {
-  return (
-    <motion.div variants={slide} className="flex items-center gap-6 flex-wrap">
-      {/* Clutch */}
-      <div className="flex flex-col gap-0.5">
-        <p
-          className="text-[9px] font-semibold uppercase tracking-widest"
-          style={{
-            color: "#71717a",
-            fontFamily: "'Geist', 'Inter', system-ui, sans-serif",
-          }}
-        >
-          Reviewed on
-        </p>
-        <div className="flex items-center gap-1.5">
-          <span
-            className="text-[1.25rem] font-bold tracking-tight leading-none text-zinc-900"
-            style={{ fontFamily: "'Geist', 'Inter', system-ui, sans-serif" }}
-          >
-            Clutch
-          </span>
-          <span className="text-red-500 text-sm leading-none">★★★★★</span>
-        </div>
-        <p
-          className="text-[9px] -mt-0.5"
-          style={{
-            color: "#71717a",
-            fontFamily: "'Geist', 'Inter', system-ui, sans-serif",
-          }}
-        >
-          10 reviews
-        </p>
-      </div>
+    return (
+        <motion.div variants={slide} className="flex flex-wrap items-center gap-6">
+            <div className="flex flex-col gap-0.5">
+                <p
+                    className="text-[9px] font-semibold tracking-widest text-neutral-500 uppercase dark:text-neutral-400"
+                    style={{
+                        fontFamily: "'Geist', 'Inter', system-ui, sans-serif",
+                    }}
+                >
+                    Built for
+                </p>
+                <div className="flex items-center gap-1.5">
+                    <span
+                        className="text-[1.25rem] leading-none font-bold tracking-tight text-neutral-900 dark:text-neutral-50"
+                        style={{
+                            fontFamily:
+                                "'Geist', 'Inter', system-ui, sans-serif",
+                        }}
+                    >
+                        Students
+                    </span>
+                </div>
+                <p
+                    className="-mt-0.5 text-[9px] text-neutral-500 dark:text-neutral-400"
+                    style={{
+                        fontFamily: "'Geist', 'Inter', system-ui, sans-serif",
+                    }}
+                >
+                    Chat · Docs · Quizzes
+                </p>
+            </div>
 
-      <div className="w-px h-10 bg-zinc-200" />
+            <div className="h-10 w-px bg-neutral-200 dark:bg-neutral-800" />
 
-      {/* Webflow */}
-      <div className="flex flex-col gap-0.5">
-        <p
-          className="text-[9px] font-semibold uppercase tracking-widest"
-          style={{
-            color: "#71717a",
-            fontFamily: "'Geist', 'Inter', system-ui, sans-serif",
-          }}
-        >
-          Professional Partner
-        </p>
-        <div className="flex items-center gap-1.5">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M17.6 3.6H6.4C4.9 3.6 3.6 4.9 3.6 6.4v11.2c0 1.5 1.3 2.8 2.8 2.8h11.2c1.5 0 2.8-1.3 2.8-2.8V6.4c0-1.5-1.3-2.8-2.8-2.8z"
-              fill="#4353FF"
-            />
-            <path
-              d="M15.5 8.5l-2.3 4.6-1.1-2.8L10.5 14 9 8.5H7l2.5 7h2l1.2-3.5 1.1 3.5h2L18 8.5h-2.5z"
-              fill="white"
-            />
-          </svg>
-          <span
-            className="text-[1.25rem] font-bold tracking-tight leading-none text-zinc-900"
-            style={{ fontFamily: "'Geist', 'Inter', system-ui, sans-serif" }}
-          >
-            Webflow
-          </span>
-        </div>
-      </div>
-    </motion.div>
-  );
+            <div className="flex flex-col gap-0.5">
+                <p
+                    className="text-[9px] font-semibold tracking-widest text-neutral-500 uppercase dark:text-neutral-400"
+                    style={{
+                        fontFamily: "'Geist', 'Inter', system-ui, sans-serif",
+                    }}
+                >
+                    Powered by
+                </p>
+                <div className="flex items-center gap-1.5">
+                    <TobuLogo size={20} className="size-5" />
+                    <span
+                        className="text-[1.25rem] leading-none font-bold tracking-tight text-neutral-900 dark:text-neutral-50"
+                        style={{
+                            fontFamily:
+                                "'Geist', 'Inter', system-ui, sans-serif",
+                        }}
+                    >
+                        Tobu AI
+                    </span>
+                </div>
+            </div>
+        </motion.div>
+    );
 }
 
 function RightPanel() {
-  const socialLinks = ["x", "behance", "linkedin", "dribbble"];
-  const font = { fontFamily: "'Geist', 'Inter', system-ui, sans-serif" };
+    const footerLinks = [
+        { label: "Product", href: "#" },
+        { label: "Features", href: "#" },
+        { label: "Pricing", href: "#" },
+        { label: "Help", href: "#" },
+    ];
+    const font = { fontFamily: "'Geist', 'Inter', system-ui, sans-serif" };
 
-  return (
-    <motion.div
-      variants={panelVariant}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, amount: 0.3 }}
-      className="h-full rounded-[2rem] flex flex-col justify-between p-10 sm:p-12"
-      style={{ backgroundColor: "#09090b" }}
-    >
-      <div className="space-y-7">
-        <div className="space-y-2">
-          <h3
-            className="text-[#fafafa] text-2xl sm:text-[1.75rem] font-semibold leading-[1.25] tracking-[-0.02em]"
-            style={font}
-          >
-            Let&apos;s build something your
-            <br />
-            customers will remember.
-          </h3>
-          <p
-            className="text-base font-normal"
-            style={{ color: "#52525b", ...font }}
-          >
-            Ready to get started?
-          </p>
-        </div>
+    return (
+        <motion.div
+            variants={panelVariant}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.3 }}
+            className="flex h-full flex-col justify-between rounded-[2rem] border border-neutral-200 bg-neutral-50 p-10 text-neutral-900 sm:p-12 dark:border-white/10 dark:bg-neutral-950 dark:text-neutral-50"
+        >
+            <div className="space-y-7">
+                <div className="space-y-2">
+                    <h3
+                        className="text-2xl leading-[1.25] font-semibold tracking-[-0.02em] text-neutral-900 sm:text-[1.75rem] dark:text-neutral-50"
+                        style={font}
+                    >
+                        Turn your notes into a
+                        <br />
+                        tutor that never gets tired.
+                    </h3>
+                    <p
+                        className="text-base font-normal text-neutral-500 dark:text-neutral-400"
+                        style={font}
+                    >
+                        Ready to get started?
+                    </p>
+                </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="text-sm font-semibold px-6 py-3 rounded-xl transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 cursor-pointer"
-            style={{ backgroundColor: "#fafafa", color: "#09090b", ...font }}
-          >
-            Start a Project
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="text-sm font-semibold px-6 py-3 rounded-xl transition-colors duration-200 focus:outline-none focus-visible:ring-2 cursor-pointer"
-            style={{ backgroundColor: "#27272a", color: "#fafafa", ...font }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = "#3f3f46")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.backgroundColor = "#27272a")
-            }
-          >
-            Book a Call
-          </motion.button>
-        </div>
-      </div>
+                <div className="flex flex-wrap items-center gap-3">
+                    <motion.div
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.97 }}
+                    >
+                        <Link
+                            href="/auth/signup"
+                            className="rounded-xl bg-neutral-900 px-6 py-3 text-sm font-semibold text-white transition-colors duration-200 hover:bg-neutral-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 dark:bg-neutral-50 dark:text-neutral-900 dark:hover:bg-white dark:focus-visible:ring-neutral-500"
+                            style={font}
+                        >
+                            Create account
+                        </Link>
+                    </motion.div>
+                    <motion.div
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.97 }}
+                    >
+                        <Link
+                            href="/auth/login"
+                            className="rounded-xl bg-neutral-200 px-6 py-3 text-sm font-semibold text-neutral-900 transition-colors duration-200 hover:bg-neutral-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 dark:bg-white/10 dark:text-neutral-50 dark:hover:bg-white/20 dark:focus-visible:ring-neutral-500"
+                            style={font}
+                        >
+                            Sign in
+                        </Link>
+                    </motion.div>
+                </div>
+            </div>
 
-      <div
-        className="flex flex-col sm:flex-row sm:items-end justify-between gap-5 mt-10 pt-8"
-        style={{ borderTop: "1px solid #27272a" }}
-      >
-        <div className="space-y-1 ">
-          <p className="text-sm text-gray-300">
-            support@bagui.dev
-          </p>
-          <p className="text-xs text-[#3f3f46]" >
-            © {currentYear} BagUI. All rights reserved.
-          </p>
-        </div>
+            <div className="mt-10 flex flex-col justify-between gap-5 border-t border-neutral-200 pt-8 sm:flex-row sm:items-end dark:border-white/10">
+                <div className="space-y-1">
+                    <p className="text-sm text-neutral-700 dark:text-neutral-300">
+                        support@tobu.ai
+                    </p>
+                    <p className="text-xs text-neutral-400 dark:text-neutral-600">
+                        © {currentYear} Tobu AI. All rights reserved.
+                    </p>
+                </div>
 
-        <div className="flex items-center gap-5 flex-wrap">
-          {socialLinks.map((link) => (
-            <a
-              key={link}
-              href="#"
-              className="text-xs capitalize transition-colors duration-200"
-              style={{ color: "#52525b", ...font }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#fafafa")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "#52525b")}
-            >
-              {link}
-            </a>
-          ))}
-          <span
-            className="w-px h-3 hidden sm:block"
-            style={{ backgroundColor: "#27272a" }}
-          />
-          <a
-            href="#"
-            className="text-xs transition-colors duration-200"
-            style={{ color: "#52525b", ...font }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "#fafafa")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "#52525b")}
-          >
-            Privacy Policy
-          </a>
-        </div>
-      </div>
-    </motion.div>
-  );
+                <div className="flex flex-wrap items-center gap-5">
+                    {footerLinks.map((link) => (
+                        <a
+                            key={link.label}
+                            href={link.href}
+                            className="text-xs capitalize text-neutral-500 transition-colors duration-200 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50"
+                            style={font}
+                        >
+                            {link.label}
+                        </a>
+                    ))}
+                    <span className="hidden h-3 w-px bg-neutral-300 sm:block dark:bg-neutral-800" />
+                    <a
+                        href="#"
+                        className="text-xs text-neutral-500 transition-colors duration-200 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50"
+                        style={font}
+                    >
+                        Privacy Policy
+                    </a>
+                </div>
+            </div>
+        </motion.div>
+    );
 }
 
 export default function DivBlockFooter() {
-  return (
-    <footer
-      className="w-full px-6 sm:px-10 lg:px-16 py-10 sm:py-14"
-    >
-      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-stretch">
-        <motion.div
-          className="w-full lg:w-[30%] flex flex-col justify-between gap-6"
-          variants={stagger}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
-        >
-          <AvatarStack />
-          <LeftHeading />
-          <CTACard />
-          <TrustBadges />
-        </motion.div>
+    return (
+        <footer className="w-full px-6 py-10 sm:px-10 sm:py-14 lg:px-16">
+            <div className="flex flex-col items-stretch gap-6 lg:flex-row lg:gap-8">
+                <motion.div
+                    className="flex w-full flex-col justify-between gap-6 lg:w-[30%]"
+                    variants={stagger}
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, amount: 0.3 }}
+                >
+                    <AvatarStack />
+                    <LeftHeading />
+                    <CTACard />
+                    <TrustBadges />
+                </motion.div>
 
-        <div className="w-full lg:w-[70%] flex flex-col">
-          <RightPanel />
-        </div>
-      </div>
-    </footer>
-  );
+                <div className="flex w-full flex-col lg:w-[70%]">
+                    <RightPanel />
+                </div>
+            </div>
+        </footer>
+    );
 }

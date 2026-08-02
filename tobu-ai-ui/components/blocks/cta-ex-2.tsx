@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { motion, Variants } from "framer-motion";
 
 export default function CTASection() {
@@ -30,70 +31,63 @@ export default function CTASection() {
                 whileInView="visible"
                 viewport={{ once: true, amount: 0.3 }}
                 variants={containerVariants}
-                className="relative w-full max-w-6xl mx-auto overflow-hidden rounded-3xl bg-black"
+                className="relative mx-auto w-full max-w-6xl overflow-hidden rounded-3xl border border-neutral-200 bg-white text-neutral-900 dark:border-white/10 dark:bg-black dark:text-white"
             >
-                {/* Gradient accent - left side */}
                 <div className="absolute inset-0">
-                    <div className="absolute top-0 left-0 w-1/2 h-full bg-gradient-to-r from-emerald-600/30 via-emerald-500/20 to-transparent rounded-full blur-3xl"></div>
-                    <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-t from-emerald-600/20 to-transparent rounded-full blur-3xl"></div>
+                    <div className="absolute top-0 left-0 h-full w-1/2 rounded-full bg-gradient-to-r from-emerald-600/30 via-emerald-500/20 to-transparent blur-3xl" />
+                    <div className="absolute bottom-0 left-0 h-96 w-96 rounded-full bg-gradient-to-t from-emerald-600/20 to-transparent blur-3xl" />
                 </div>
 
-                {/* Content */}
-                <div className="relative z-10 px-6 py-24 sm:px-12 sm:py-28 lg:px-20 flex flex-col items-center text-center">
-                    {/* Heading */}
+                <div className="relative z-10 flex flex-col items-center px-6 py-24 text-center sm:px-12 sm:py-28 lg:px-20">
                     <motion.h2
                         variants={itemVariants}
-                        className="text-4xl sm:text-5xl lg:text-6xl text-white tracking-tight mb-6"
+                        className="mb-6 text-4xl tracking-tight sm:text-5xl lg:text-6xl"
                     >
-                        Ready for more demand?
+                        Ready to study smarter?
                     </motion.h2>
 
-                    {/* Subheading */}
                     <motion.p
                         variants={itemVariants}
-                        className="text-xl sm:text-xl text-gray-300 mb-10 max-w-2xl leading-relaxed"
+                        className="mb-10 max-w-2xl text-xl leading-relaxed text-neutral-600 sm:text-xl dark:text-gray-300"
                     >
-                        Stop losing leads to &quot;Get in touch&quot; buttons
-                        and boring contact forms.
+                        Stop rereading the same notes. Chat, quiz, and review
+                        with Tobu AI — your personal study companion.
                     </motion.p>
 
-                    {/* Buttons */}
                     <motion.div
                         variants={itemVariants}
-                        className="flex flex-col sm:flex-row gap-4 sm:gap-6 mb-6 w-full sm:w-auto"
+                        className="mb-6 flex w-full flex-col gap-4 sm:w-auto sm:flex-row sm:gap-6"
                     >
-                        {/* Primary CTA */}
-                        <motion.button
-                            whileHover={{
-                                scale: 1.05,
-                                boxShadow:
-                                    "0 20px 40px rgba(255, 255, 255, 0.2)",
-                            }}
+                        <motion.div
+                            whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.98 }}
-                            className="px-8 py-3.5 bg-white text-black font-semibold rounded-lg transition-all duration-200 hover:shadow-2xl cursor-pointer"
                         >
-                            Start free trial
-                        </motion.button>
+                            <Link
+                                href="/auth/signup"
+                                className="block rounded-lg bg-neutral-900 px-8 py-3.5 font-semibold text-white transition-all duration-200 hover:shadow-2xl dark:bg-white dark:text-black"
+                            >
+                                Start for free
+                            </Link>
+                        </motion.div>
 
-                        {/* Secondary CTA */}
-                        <motion.button
-                            whileHover={{
-                                scale: 1.05,
-                                borderColor: "rgba(255, 255, 255, 0.5)",
-                            }}
+                        <motion.div
+                            whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.98 }}
-                            className="px-8 py-3.5 border border-gray-700 text-white font-semibold rounded-lg transition-all duration-200 hover:border-gray-500 hover:bg-white/5 cursor-pointer"
                         >
-                            Book a demo
-                        </motion.button>
+                            <Link
+                                href="/auth/login"
+                                className="block rounded-lg border border-neutral-300 px-8 py-3.5 font-semibold text-neutral-900 transition-all duration-200 hover:border-neutral-500 hover:bg-neutral-100 dark:border-gray-700 dark:text-white dark:hover:border-gray-500 dark:hover:bg-white/5"
+                            >
+                                Sign in
+                            </Link>
+                        </motion.div>
                     </motion.div>
 
-                    {/* Supporting text */}
                     <motion.p
                         variants={itemVariants}
-                        className="text-sm text-gray-500"
+                        className="text-sm text-neutral-500 dark:text-gray-500"
                     >
-                        14 Days Free. No credit card required.
+                        Free to start. No credit card required.
                     </motion.p>
                 </div>
             </motion.div>
