@@ -40,8 +40,8 @@ export default function RootLayout({
             )}
         >
             <head></head>
-            <body className="h-screen no-scrollbar flex flex-col">
-                <ThemeProvider defaultTheme="system" enableSystem>
+            <body className="h-screen no-scrollbar flex flex-col ">
+                <ThemeProvider>
                     {children}
                 </ThemeProvider>
             </body>

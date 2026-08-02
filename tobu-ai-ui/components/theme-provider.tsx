@@ -31,6 +31,7 @@ export function ThemeProvider({
             attribute="class"
             defaultTheme="system"
             enableSystem
+            storageKey="tobu-theme"
             disableTransitionOnChange
             {...props}
         >
