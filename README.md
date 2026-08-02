@@ -1,66 +1,47 @@
 # imbbox2
 
-Local study / quiz stack: Next.js UI, document→topic worker, quiz LangGraph agents, and Docker infra (Redis, MongoDB, MinIO, LiveKit).
+Study / quiz stack: Next.js UI, document→topic worker, quiz LangGraph agents, Redis, MongoDB, MinIO, LiveKit, and Ollama.
 
 For component roles and Redis/Mongo naming, see [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
-## Prerequisites
+## Quick start (Docker — runs anywhere)
 
-| Tool | Notes |
-|------|--------|
-| [Docker](https://docs.docker.com/get-docker/) + Compose plugin | Infra: Redis, MongoDB, MinIO, LiveKit |
-| [uv](https://docs.astral.sh/uv/) | Python workers / quiz agents (3.13+) |
-| Node.js 20+ + npm | `tobu-ai-ui` |
-| [Ollama](https://ollama.com/) | LLM for topic graphs and quiz voice (recommended) |
-| `curl` | Health checks in the start script |
-
-## One-time setup
+Requires only **Docker** + Compose plugin.
 
 ```bash
-# 1. Clone and enter the repo
-cd imbbox2
-
-# 2. Create env files from templates (start.sh also does this if missing)
 cp .env.example .env
-cp .env.example .env.all
-cp tobu-ai-ui/.env.example tobu-ai-ui/.env.local
-cp workers/topicable/.env.example workers/topicable/.env
-cp agents/quiz/.env.example agents/quiz/.env
+# Edit .env: set strong passwords, AUTH_SECRET, and LiveKit key/secret if needed.
 
-# 3. Edit secrets so Compose and host apps agree (especially passwords,
-#    AUTH_SECRET, and LiveKit key/secret). Keep host endpoints on localhost.
+chmod +x scripts/docker-up.sh scripts/docker-down.sh
+./scripts/docker-up.sh
 ```
 
-Pull an Ollama model that matches your env (`LLM_MODEL` / `OLLAMA_MODEL`):
+Open **http://localhost:3000**.
+
+This builds and starts:
+
+| Image / service | Role |
+|-----------------|------|
+| `imbbox2-ui` (`ui`) | Next.js app |
+| `imbbox2-topicable` (`topicable`) | Document + topic-graph worker |
+| `imbbox2-quiz` (`quiz-api`, `quiz-voice`) | Quiz FastAPI + LiveKit voice worker |
+| `redis`, `mongodb`, `minio`, `livekit` | Infra |
+| `ollama` (+ `ollama-init`) | Local LLM (auto-pulls `LLM_MODEL`) |
 
 ```bash
-ollama serve   # if not already running
-ollama pull qwen2.5:0.5b
-# quiz voice .env.example defaults to llama3.2 — pull that too, or change OLLAMA_MODEL
+docker compose ps
+docker compose logs -f ui topicable quiz-api quiz-voice
+./scripts/docker-down.sh          # stop
+./scripts/docker-down.sh -v       # stop + wipe volumes
 ```
 
-## Start everything
+Rebuild after code changes:
 
 ```bash
-chmod +x scripts/start.sh scripts/stop.sh   # once
-./scripts/start.sh
+./scripts/docker-up.sh --no-cache
+# or
+docker compose build ui topicable quiz-api && docker compose up -d
 ```
-
-First run (or after dependency changes):
-
-```bash
-./scripts/start.sh --sync
-```
-
-What `start.sh` launches:
-
-1. **Docker Compose** — `redis`, `mongodb`, `minio`, `createbuckets`, `livekit`
-2. **topicable** — document worker (`workers/topicable`)
-3. **quiz API** — FastAPI + Redis QG/AA workers on `:8000` (`agents/quiz`)
-4. **quiz voice** — LiveKit agent worker (`agents/quiz` … `agent dev`)
-5. **tobu-ai-ui** — Next.js on `:3000`
-
-Then open **http://localhost:3000**.
 
 ### Useful URLs
 
@@ -73,64 +54,65 @@ Then open **http://localhost:3000**.
 | LiveKit | ws://localhost:7880 |
 | Ollama | http://localhost:11434 |
 
-### Logs and PIDs
+### Images
 
-Host process logs and PID files live under `.run/` (gitignored):
+| Image | Dockerfile |
+|-------|------------|
+| `imbbox2-ui:latest` | [`tobu-ai-ui/Dockerfile`](tobu-ai-ui/Dockerfile) |
+| `imbbox2-topicable:latest` | [`workers/topicable/Dockerfile`](workers/topicable/Dockerfile) |
+| `imbbox2-quiz:latest` | [`agents/quiz/Dockerfile`](agents/quiz/Dockerfile) |
+
+Browser-facing LiveKit URL is baked at **UI image build** time via `NEXT_PUBLIC_LIVEKIT_URL` (default `ws://localhost:7880`). Override before build if clients are not on the same machine:
 
 ```bash
-tail -f .run/logs/ui.log
-tail -f .run/logs/topicable.log
-tail -f .run/logs/quiz-api.log
-tail -f .run/logs/quiz-voice.log
+NEXT_PUBLIC_LIVEKIT_URL=ws://YOUR_HOST_IP:7880 \
+NEXT_PUBLIC_APP_URL=http://YOUR_HOST_IP:3000 \
+LIVEKIT_NODE_IP=YOUR_HOST_IP \
+./scripts/docker-up.sh --no-cache
 ```
 
-### Start options
+---
+
+## Local hybrid (optional)
+
+Host runs UI/workers; Docker runs infra only.
+
+### Prerequisites
+
+| Tool | Notes |
+|------|--------|
+| Docker + Compose | Infra |
+| [uv](https://docs.astral.sh/uv/) | Python 3.13+ |
+| Node.js 20+ + npm | UI |
+| Ollama | Or use Compose `ollama` |
+| `curl` | Health checks |
+
+### Setup
 
 ```bash
-./scripts/start.sh --infra-only      # Docker only
-./scripts/start.sh --no-voice        # skip LiveKit voice worker
-./scripts/start.sh --no-quiz         # skip quiz FastAPI
-./scripts/start.sh --no-worker       # skip topicable
-./scripts/start.sh --no-ui           # skip Next.js
-./scripts/start.sh --skip-ollama-check
-./scripts/start.sh --help
+cp .env.example .env
+cp .env.example .env.all
+cp tobu-ai-ui/.env.example tobu-ai-ui/.env.local
+cp workers/topicable/.env.example workers/topicable/.env
+cp agents/quiz/.env.example agents/quiz/.env
+# Align passwords / LiveKit keys; keep host endpoints on localhost.
 ```
 
-## Stop
-
 ```bash
-# Stop UI / workers / agents; leave Docker infra up
+chmod +x scripts/start.sh scripts/stop.sh
+./scripts/start.sh          # or: ./scripts/start.sh --sync
 ./scripts/stop.sh
-
-# Also stop Redis, MongoDB, MinIO, LiveKit
 ./scripts/stop.sh --infra
 ```
 
-## Manual start (optional)
+Logs/PIDs: `.run/logs/`, `.run/pids/`.
 
-If you prefer separate terminals:
-
-```bash
-# Infra
-docker compose up -d redis mongodb minio createbuckets livekit
-
-# Worker
-cd workers/topicable && uv sync && uv run python main.py
-
-# Quiz API (also starts Redis QG/AA background threads)
-cd agents/quiz && uv sync && uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-
-# Quiz LiveKit voice worker
-cd agents/quiz && uv run python -m livekit_voice_user_interaction_agent.agent dev
-
-# UI
-cd tobu-ai-ui && npm install && npm run dev
-```
+---
 
 ## Notes
 
-- Align passwords and LiveKit `devkey`/`secret` across root `.env`, `tobu-ai-ui/.env.local`, and service `.env` files.
-- Host processes talk to infra on **localhost**; containers on the Compose network use service names (`redis`, `minio`, `livekit`).
-- `workers/initdata-extraction-worker` is a legacy Docling path and is **not** started by default (topicable owns the document pipeline).
-- `agents/topic` is out of scope for this start path.
-- Deeper architecture: [`ARCHITECTURE.md`](ARCHITECTURE.md).
+- Compose app services talk over the Docker network (`redis`, `minio`, `mongodb`, `livekit`, `ollama`).
+- Host hybrid mode uses `localhost` for the same ports.
+- URL-encode special characters in Mongo passwords inside `MONGODB_URI`.
+- `workers/initdata-extraction-worker` is legacy and not started by default.
+- `agents/topic` is out of scope for these start paths.

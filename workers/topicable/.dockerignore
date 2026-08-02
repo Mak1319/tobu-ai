@@ -6,3 +6,9 @@ __pycache__
 !.env.example
 .git
 .gitignore
+README.md
+*.md
+.ruff_cache
+.pytest_cache
+Dockerfile
+.dockerignore

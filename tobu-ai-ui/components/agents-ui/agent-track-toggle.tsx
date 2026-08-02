@@ -64,7 +64,7 @@ function getSourceIcon(source: Track.Source, enabled: boolean, pending = false) 
  * Props for the AgentTrackToggle component.
  */
 export type AgentTrackToggleProps = VariantProps<typeof agentTrackToggleVariants> &
-  ComponentProps<'button'> & {
+  Omit<ComponentProps<'button'>, 'value'> & {
     /**
      * The size of the toggle.
      */

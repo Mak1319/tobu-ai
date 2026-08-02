@@ -6,6 +6,7 @@ volumes:
     minio_data:
     mongo_data:
     redis_data:
+    ollama_data:
 
 services:
     # ---------------------------------------------------------
@@ -265,5 +266,252 @@ services:
             timeout: 5s
             retries: 5
             start_period: 10s
+        networks:
+            - app-network
+
+    # ---------------------------------------------------------
+    # Ollama — local LLM used by topicable + quiz voice
+    # ---------------------------------------------------------
+    ollama:
+        image: ollama/ollama:latest
+        container_name: ollama
+        restart: unless-stopped
+        # Host publish is optional — app containers use http://ollama:11434 on the
+        # compose network. Set OLLAMA_PORT only if you want host access and the
+        # port is free (default host Ollama often already binds 11434).
+        ports:
+            - "${OLLAMA_HOST_PORT:-}:11434"
+        volumes:
+            - ollama_data:/root/.ollama
+        healthcheck:
+            test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+            interval: 15s
+            timeout: 10s
+            retries: 10
+            start_period: 20s
+        networks:
+            - app-network
+
+    ollama-init:
+        image: ollama/ollama:latest
+        container_name: ollama-init
+        depends_on:
+            ollama:
+                condition: service_healthy
+        environment:
+            OLLAMA_HOST: http://ollama:11434
+            LLM_MODEL: ${LLM_MODEL:-qwen2.5:0.5b}
+            OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:0.5b}
+        entrypoint: ["sh", "-c"]
+        command:
+            - |
+                set -e
+                MODEL="$${LLM_MODEL:-qwen2.5:0.5b}"
+                VOICE_MODEL="$${OLLAMA_MODEL:-$$MODEL}"
+                echo "Pulling LLM model: $$MODEL"
+                ollama pull "$$MODEL"
+                if [ "$$VOICE_MODEL" != "$$MODEL" ]; then
+                  echo "Pulling voice LLM model: $$VOICE_MODEL"
+                  ollama pull "$$VOICE_MODEL"
+                fi
+                echo "Ollama models ready"
+        restart: "no"
+        networks:
+            - app-network
+
+    # ---------------------------------------------------------
+    # tobu-ai-ui — Next.js production image
+    # ---------------------------------------------------------
+    ui:
+        build:
+            context: ./tobu-ai-ui
+            dockerfile: Dockerfile
+            args:
+                NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+                NEXT_PUBLIC_LIVEKIT_URL: ${NEXT_PUBLIC_LIVEKIT_URL:-ws://localhost:7880}
+        image: imbbox2-ui:latest
+        container_name: tobu-ai-ui
+        restart: unless-stopped
+        ports:
+            - "${UI_PORT:-3000}:3000"
+        environment:
+            AUTH_SECRET: ${AUTH_SECRET}
+            NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+            NEXT_PUBLIC_LIVEKIT_URL: ${NEXT_PUBLIC_LIVEKIT_URL:-ws://localhost:7880}
+            MONGODB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/?authSource=admin
+            MONGODB_DB: ${MONGODB_DB:-tobu_ai}
+            REDIS_HOST: redis
+            REDIS_PORT: "6379"
+            REDIS_DB: ${REDIS_DB:-0}
+            REDIS_PASSWORD: ${REDIS_PASSWORD}
+            STREAM_RESULT_KEY: ${STREAM_RESULT_KEY:-docling_result}
+            QUIZ_AGENT_STREAM: ${QUIZ_AGENT_STREAM:-quiz_agent_bus}
+            STREAM_HISTORY_COUNT: ${STREAM_HISTORY_COUNT:-200}
+            MINIO_ENDPOINT: http://minio:9000
+            MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+            MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+            MINIO_BUCKET: ${DOCUMENTS_BUCKET:-documents-bucket}
+            DOCUMENTS_BUCKET: ${DOCUMENTS_BUCKET:-documents-bucket}
+            PROCESSED_BUCKET: ${PROCESSED_BUCKET:-processed-documents}
+            MINIO_NOTIFY_ARN: ${MINIO_NOTIFY_ARN:-arn:minio:sqs::primary:redis}
+            LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+            LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
+            LIVEKIT_AGENT_NAME: ${LIVEKIT_AGENT_NAME:-quiz}
+            SMTP_URL: ${SMTP_URL:-}
+            SMTP_FROM: ${SMTP_FROM:-Tobu AI <no-reply@tobu.ai>}
+        depends_on:
+            mongodb:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+            minio:
+                condition: service_healthy
+            livekit:
+                condition: service_healthy
+        networks:
+            - app-network
+
+    # ---------------------------------------------------------
+    # topicable — MinIO events → markdown + topic graph
+    # ---------------------------------------------------------
+    topicable:
+        build:
+            context: ./workers/topicable
+            dockerfile: Dockerfile
+        image: imbbox2-topicable:latest
+        container_name: topicable
+        restart: unless-stopped
+        environment:
+            REDIS_HOST: redis
+            REDIS_PORT: "6379"
+            REDIS_DB: ${REDIS_DB:-0}
+            REDIS_PASSWORD: ${REDIS_PASSWORD}
+            REDIS_EVENT_KEY: ${REDIS_EVENT_KEY:-minio-events}
+            REDIS_EVENT_LIST: ${REDIS_EVENT_LIST:-minio-events}
+            STREAM_RESULT_KEY: ${STREAM_RESULT_KEY:-docling_result}
+            REDIS_OUTPUT_STREAM: ${REDIS_OUTPUT_STREAM:-docling_result}
+            STREAM_MAXLEN: ${STREAM_MAXLEN:-10000}
+            REDIS_BLOCK_SECONDS: ${REDIS_BLOCK_SECONDS:-5}
+            MONGODB_URL: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/?authSource=admin
+            MONGODB_DB: ${MONGODB_DB:-tobu_ai}
+            HASH_COLLECTION: ${HASH_COLLECTION:-hashContentMap}
+            MINIO_ENDPOINT: http://minio:9000
+            MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+            MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+            MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+            MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+            MINIO_REGION: ${MINIO_REGION:-us-east-1}
+            UPLOADED_BUCKET: ${DOCUMENTS_BUCKET:-documents-bucket}
+            DOCUMENTS_BUCKET: ${DOCUMENTS_BUCKET:-documents-bucket}
+            PROCESSED_BUCKET: ${PROCESSED_BUCKET:-processed-documents}
+            LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama:11434}
+            LLM_API_KEY: ${LLM_API_KEY:-ollama}
+            LLM_MODEL: ${LLM_MODEL:-qwen2.5:0.5b}
+            LLM_TIMEOUT: ${LLM_TIMEOUT:-180}
+            LOG_LEVEL: ${LOG_LEVEL:-INFO}
+            FORCE_DOCLING: ${FORCE_DOCLING:-0}
+            DEBUG: ${DEBUG:-0}
+        depends_on:
+            redis:
+                condition: service_healthy
+            minio:
+                condition: service_healthy
+            mongodb:
+                condition: service_healthy
+            ollama:
+                condition: service_healthy
+            createbuckets:
+                condition: service_completed_successfully
+        networks:
+            - app-network
+
+    # ---------------------------------------------------------
+    # quiz-api — FastAPI + Redis QG/AA workers
+    # ---------------------------------------------------------
+    quiz-api:
+        build:
+            context: ./agents/quiz
+            dockerfile: Dockerfile
+        image: imbbox2-quiz:latest
+        container_name: quiz-api
+        restart: unless-stopped
+        ports:
+            - "${QUIZ_API_PORT:-8000}:8000"
+        environment:
+            REDIS_HOST: redis
+            REDIS_PORT: "6379"
+            REDIS_DB: ${REDIS_DB:-0}
+            REDIS_PASSWORD: ${REDIS_PASSWORD}
+            REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+            QUIZ_AGENT_STREAM: ${QUIZ_AGENT_STREAM:-quiz_agent_bus}
+            MONGODB_URL: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/?authSource=admin
+            MONGODB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/?authSource=admin
+            DATABASE_NAME: ${MONGODB_DB:-tobu_ai}
+            CHECKPOINT_COLLECTION: ${CHECKPOINT_COLLECTION:-langgraph_checkpoints}
+            CHECKPOINT_WRITES_COLLECTION: ${CHECKPOINT_WRITES_COLLECTION:-langgraph_checkpoint_writes}
+            LIVEKIT_URL: ws://livekit:7880
+            LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+            LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
+            LIVEKIT_AGENT_NAME: ${LIVEKIT_AGENT_NAME:-quiz}
+            OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434/v1}
+            OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:0.5b}
+        depends_on:
+            redis:
+                condition: service_healthy
+            mongodb:
+                condition: service_healthy
+        networks:
+            - app-network
+
+    # ---------------------------------------------------------
+    # quiz-voice — LiveKit Agents worker (same image, different CMD)
+    # ---------------------------------------------------------
+    quiz-voice:
+        build:
+            context: ./agents/quiz
+            dockerfile: Dockerfile
+        image: imbbox2-quiz:latest
+        container_name: quiz-voice
+        restart: unless-stopped
+        environment:
+            REDIS_HOST: redis
+            REDIS_PORT: "6379"
+            REDIS_DB: ${REDIS_DB:-0}
+            REDIS_PASSWORD: ${REDIS_PASSWORD}
+            REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+            QUIZ_AGENT_STREAM: ${QUIZ_AGENT_STREAM:-quiz_agent_bus}
+            MONGODB_URL: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/?authSource=admin
+            DATABASE_NAME: ${MONGODB_DB:-tobu_ai}
+            LIVEKIT_URL: ws://livekit:7880
+            LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+            LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
+            LIVEKIT_AGENT_NAME: ${LIVEKIT_AGENT_NAME:-quiz}
+            USE_LOCAL_VOICE: ${USE_LOCAL_VOICE:-true}
+            WHISPER_MODEL: ${WHISPER_MODEL:-distil-small.en}
+            WHISPER_DEVICE: ${WHISPER_DEVICE:-cpu}
+            WHISPER_COMPUTE_TYPE: ${WHISPER_COMPUTE_TYPE:-int8}
+            PIPER_MODEL_PATH: /app/models/en_US-lessac-medium.onnx
+            PIPER_USE_CUDA: ${PIPER_USE_CUDA:-false}
+            PIPER_SPEECH_RATE: ${PIPER_SPEECH_RATE:-1.0}
+            OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434/v1}
+            OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:0.5b}
+        command:
+            [
+                "uv",
+                "run",
+                "python",
+                "-m",
+                "livekit_voice_user_interaction_agent.agent",
+                "start",
+            ]
+        depends_on:
+            livekit:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+            ollama:
+                condition: service_healthy
+            quiz-api:
+                condition: service_started
         networks:
             - app-network
