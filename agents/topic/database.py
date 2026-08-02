@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
     users_collection = db["users"]
 
     # Enforce unique email constraint at the database engine level
-    await users_collection.create_index("email", unique=True)
+    # await users_collection.create_index("email", unique=True)
     yield
     # Properly close connection pool on shutdown
     await client.close()
