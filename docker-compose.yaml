@@ -137,8 +137,8 @@ services:
         #         REDIS_PORT: ${REDIS_PORT:-6379}
         #         REDIS_PASSWORD: ${REDIS_PASSWORD}
         #         REDIS_DB: ${REDIS_DB:-0}
-        #         REDIS_EVENT_KEY: ${REDIS_EVENT_KEY:-minio-events-queue}
-        #         STREAM_RESULT_KEY: ${STREAM_RESULT_KEY:-docling_results}
+#         REDIS_EVENT_KEY: ${REDIS_EVENT_KEY:-minio-events}
+#         STREAM_RESULT_KEY: ${STREAM_RESULT_KEY:-docling_result}
         #         MINIO_ENDPOINT: http://minio:9000
         #         MINIO_ROOT_USER: ${MINIO_ROOT_USER}
         #         MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
@@ -178,7 +178,7 @@ services:
         #         MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
         #         DOCUMENTS_BUCKET: ${DOCUMENTS_BUCKET:-documents-bucket}
         #         PROCESSED_BUCKET: ${PROCESSED_BUCKET:-processed-documents}
-        #         STREAM_RESULT_KEY: ${STREAM_RESULT_KEY:-docling_results}
+        #         STREAM_RESULT_KEY: ${STREAM_RESULT_KEY:-docling_result}
         #         CELERY_QUEUE: ${CELERY_QUEUE:-docling}
         #     depends_on:
         #         redis:
@@ -219,7 +219,7 @@ services:
         #         MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
         #         DOCUMENTS_BUCKET: ${DOCUMENTS_BUCKET:-documents-bucket}
         #         PROCESSED_BUCKET: ${PROCESSED_BUCKET:-processed-documents}
-        #         STREAM_RESULT_KEY: ${STREAM_RESULT_KEY:-docling_results}
+        #         STREAM_RESULT_KEY: ${STREAM_RESULT_KEY:-docling_result}
         #         CELERY_QUEUE: ${CELERY_QUEUE:-docling}
         #     depends_on:
         #         redis:
@@ -230,35 +230,40 @@ services:
         #         - app-network
 
         # ---------------------------------------------------------
-        # LiveKit voice stack — opt-in via `--profile voice`.
-        # Without the profile, `docker compose up` does NOT start these.
+        # LiveKit — local WebRTC SFU for voice rooms (chat-{chatId}).
+        # Keys must match LIVEKIT_API_KEY / LIVEKIT_API_SECRET in .env
+        # and tobu-ai-ui/.env.local (defaults: devkey / secret).
+        #
+        # Host browser / Next.js:  ws://localhost:7880
+        # Containers on app-network: ws://livekit:7880
         # ---------------------------------------------------------
-    # livekit:
-    #     image: livekit/livekit-server:latest
-    #     container_name: livekit
-    #     restart: unless-stopped
-    #     profiles: ["voice"]
-    #     ports:
-    #         - "7880:7880" # HTTP/WS signaling
-    #         - "7881:7881/udp" # TURN/UDP
-    #         - "7882:7882/tcp" # TURN/TCP
-    #     environment:
-    #         # Single dev key -- must match the values the livekit-agent
-    #         # worker uses for LIVEKIT_API_KEY/SECRET.
-    #         LIVEKIT_KEYS: "devkey: ${LIVEKIT_API_SECRET:-secret}"
-    #     command:
-    #         - "--dev"
-    #         - "--bind"
-    #         - "0.0.0.0"
-    #     healthcheck:
-    #         test:
-    #             [
-    #                 "CMD-SHELL",
-    #                 "wget -qO- http://localhost:7880/ >/dev/null 2>&1 || exit 1",
-    #             ]
-    #         interval: 10s
-    #         timeout: 5s
-    #         retries: 5
-    #         start_period: 10s
-    #     networks:
-    #         - app-network
+    livekit:
+        image: livekit/livekit-server:latest
+        container_name: livekit
+        restart: unless-stopped
+        ports:
+            - "${LIVEKIT_PORT:-7880}:7880" # HTTP / WebSocket signaling
+            - "${LIVEKIT_RTC_TCP_PORT:-7881}:7881" # RTC over TCP
+            - "${LIVEKIT_RTC_UDP_PORT:-7882}:7882/udp" # RTC / ICE over UDP
+        environment:
+            LIVEKIT_KEYS: "${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-secret}"
+        command:
+            - "--dev"
+            - "--bind"
+            - "0.0.0.0"
+            # Advertise a reachable ICE address to browsers on the host.
+            # Override LIVEKIT_NODE_IP if connecting from another machine.
+            - "--node-ip"
+            - "${LIVEKIT_NODE_IP:-127.0.0.1}"
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "wget -qO- http://127.0.0.1:7880/ || exit 1",
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+        networks:
+            - app-network

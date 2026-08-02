@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://imbbox2.local/schema-registry/preferences.json",
+  "title": "Preferences",
+  "description": "User UI preferences. Source: tobu-ai-ui/lib/db/models/Preferences.ts",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "_id": { "type": "string" },
+    "theme": {
+      "type": "string",
+      "enum": ["light", "dark", "system"],
+      "default": "system"
+    },
+    "language": { "type": "string", "default": "en" },
+    "notifications": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "email": { "type": "boolean", "default": true },
+        "push": { "type": "boolean", "default": false }
+      }
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}

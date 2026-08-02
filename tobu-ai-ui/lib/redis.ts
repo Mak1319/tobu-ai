@@ -5,13 +5,14 @@ import Redis, { type Redis as RedisClient } from "ioredis";
  * Server-side Redis helpers used by the worker-events SSE bridge.
  *
  * The `document-worker` writes object-created notifications to a Redis list
- * and appends a completion event to the `docling_results` stream once docling
+ * and appends a completion event to the `docling_result` stream once docling
  * has produced markdown. The SSE bridge reads history (catch-up) then live
  * `XREAD` so reconnects / late opens do not miss events.
  *
- * Connection settings mirror the ones in `worker/main.py`:
+ * Connection settings mirror the ones in workers:
  *   REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD
- *   STREAM_RESULT_KEY (or legacy PUBSUB_RESULT_CHANNEL; default "docling_results")
+ *   STREAM_RESULT_KEY (canonical: "docling_result"; aliases REDIS_OUTPUT_STREAM / PUBSUB_RESULT_CHANNEL)
+ *   QUIZ_AGENT_STREAM (canonical: "quiz_agent_bus")
  */
 
 const REDIS_HOST = process.env.REDIS_HOST ?? "localhost";
@@ -20,8 +21,13 @@ const REDIS_DB = Number.parseInt(process.env.REDIS_DB ?? "0", 10);
 const REDIS_PASSWORD = process.env.REDIS_PASSWORD || undefined;
 export const STREAM_RESULT_KEY =
     process.env.STREAM_RESULT_KEY ??
+    process.env.REDIS_OUTPUT_STREAM ??
     process.env.PUBSUB_RESULT_CHANNEL ??
-    "docling_results";
+    "docling_result";
+
+/** Quiz agents bus (LiveKit ↔ QG ↔ AA), filtered by chatId. */
+export const QUIZ_AGENT_STREAM =
+    process.env.QUIZ_AGENT_STREAM ?? "quiz_agent_bus";
 
 /** How many recent stream entries to scan on a fresh SSE connect (no Last-Event-ID). */
 export const STREAM_HISTORY_COUNT = Number.parseInt(
@@ -71,15 +77,19 @@ export function createRedisStreamReader(): RedisClient {
     return client;
 }
 
-/** Shape of the JSON payload published by `document-worker`. */
+/**
+ * Normalized Docling / topicable result event.
+ * Accepts both initdata snake_case and topicable camelCase fields.
+ */
 export type DoclingResultEvent = {
     session_id: string | null;
-    status: "processed" | "skipped" | "error" | string;
+    status: "processed" | "skipped" | "error" | "success" | "partial" | "cached" | string;
     file_key: string;
     md_key?: string;
     sha256?: string;
     markdown_chars?: number;
     error?: string;
+    topicGraphReady?: boolean;
 };
 
 export type DoclingStreamEntry = {
@@ -87,16 +97,80 @@ export type DoclingStreamEntry = {
     event: DoclingResultEvent;
 };
 
+type RawDoclingPayload = Record<string, unknown>;
+
+function asNonEmptyString(value: unknown): string | undefined {
+    if (typeof value !== "string") return undefined;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+}
+
+/** Map topicable / initdata status payloads onto one UI shape. */
+export function normalizeDoclingResult(
+    raw: RawDoclingPayload,
+): DoclingResultEvent | null {
+    const status = asNonEmptyString(raw.status);
+    if (!status) return null;
+
+    const session_id =
+        asNonEmptyString(raw.session_id) ??
+        asNonEmptyString(raw.sessionId) ??
+        null;
+
+    const sha256 =
+        asNonEmptyString(raw.sha256) ??
+        asNonEmptyString(raw.fileHash) ??
+        asNonEmptyString(raw.file_hash);
+
+    const file_key =
+        asNonEmptyString(raw.file_key) ??
+        asNonEmptyString(raw.uploadKey) ??
+        asNonEmptyString(raw.upload_key) ??
+        sha256;
+    // Status-only worker messages always carry sessionId + fileHash + status.
+    if (!session_id && !file_key && !sha256) return null;
+
+    const md_key =
+        asNonEmptyString(raw.md_key) ??
+        asNonEmptyString(raw.mdKey) ??
+        (sha256 ? `${sha256}.md` : undefined);
+
+    const error = asNonEmptyString(raw.error);
+    const topicGraphReady =
+        typeof raw.topicGraphReady === "boolean"
+            ? raw.topicGraphReady
+            : undefined;
+
+    return {
+        session_id,
+        status,
+        file_key: file_key ?? "unknown",
+        ...(md_key ? { md_key } : {}),
+        ...(sha256 ? { sha256 } : {}),
+        ...(error ? { error } : {}),
+        ...(topicGraphReady !== undefined ? { topicGraphReady } : {}),
+    };
+}
+
 export function parseDoclingResult(raw: string): DoclingResultEvent | null {
     try {
-        const parsed = JSON.parse(raw) as DoclingResultEvent;
+        const parsed = JSON.parse(raw) as RawDoclingPayload;
         if (!parsed || typeof parsed !== "object") return null;
-        if (typeof parsed.file_key !== "string") return null;
-        if (typeof parsed.status !== "string") return null;
-        return parsed;
+        return normalizeDoclingResult(parsed);
     } catch {
         return null;
     }
+}
+
+/** Statuses that mean markdown (and optionally topic graph) is available. */
+export function isDoclingReadyStatus(status: string): boolean {
+    return (
+        status === "processed" ||
+        status === "skipped" ||
+        status === "success" ||
+        status === "partial" ||
+        status === "cached"
+    );
 }
 
 function entryFromFields(
@@ -165,6 +239,90 @@ export async function readDoclingLive(
     for (const [, messages] of result) {
         for (const [id, fields] of messages) {
             const entry = entryFromFields(id, fields);
+            if (entry) entries.push(entry);
+        }
+    }
+    return entries;
+}
+
+/** Shape published by agents/quiz shared.redis_bus. */
+export type QuizAgentEvent = {
+    chatId: string;
+    from: string;
+    to: string;
+    type: string;
+    correlationId: string;
+    payload: Record<string, unknown>;
+    ts?: number;
+};
+
+export type QuizStreamEntry = {
+    id: string;
+    event: QuizAgentEvent;
+};
+
+export function parseQuizAgentEvent(raw: string): QuizAgentEvent | null {
+    try {
+        const parsed = JSON.parse(raw) as QuizAgentEvent;
+        if (!parsed || typeof parsed !== "object") return null;
+        if (typeof parsed.chatId !== "string") return null;
+        if (typeof parsed.type !== "string") return null;
+        return parsed;
+    } catch {
+        return null;
+    }
+}
+
+function quizEntryFromFields(
+    id: string,
+    fields: string[],
+): QuizStreamEntry | null {
+    let payload: string | undefined;
+    for (let i = 0; i < fields.length; i += 2) {
+        if (fields[i] === "payload") {
+            payload = fields[i + 1];
+            break;
+        }
+    }
+    if (payload === undefined) return null;
+    const event = parseQuizAgentEvent(payload);
+    if (!event) return null;
+    return { id, event };
+}
+
+export async function readQuizHistory(
+    redis: RedisClient,
+    count = STREAM_HISTORY_COUNT,
+): Promise<{ entries: QuizStreamEntry[]; newestId: string | null }> {
+    const rows = await redis.xrevrange(QUIZ_AGENT_STREAM, "+", "-", "COUNT", count);
+    const newestId = rows.length > 0 ? rows[0]![0] : null;
+    const entries: QuizStreamEntry[] = [];
+    for (const [id, fields] of rows) {
+        const entry = quizEntryFromFields(id, fields);
+        if (entry) entries.push(entry);
+    }
+    entries.reverse();
+    return { entries, newestId };
+}
+
+export async function readQuizLive(
+    redis: RedisClient,
+    lastId: string,
+    blockMs = 15_000,
+): Promise<QuizStreamEntry[]> {
+    const result = await redis.xread(
+        "BLOCK",
+        blockMs,
+        "STREAMS",
+        QUIZ_AGENT_STREAM,
+        lastId,
+    );
+    if (!result) return [];
+
+    const entries: QuizStreamEntry[] = [];
+    for (const [, messages] of result) {
+        for (const [id, fields] of messages) {
+            const entry = quizEntryFromFields(id, fields);
             if (entry) entries.push(entry);
         }
     }

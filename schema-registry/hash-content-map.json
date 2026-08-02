@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://imbbox2.local/schema-registry/hash-content-map.json",
+  "title": "HashContentMap",
+  "description": "Cached Docling markdown + topic graph keyed by file hash. Source: workers/topicable/mongo.py (collection hashContentMap)",
+  "type": "object",
+  "required": ["hashId", "content"],
+  "additionalProperties": false,
+  "properties": {
+    "_id": { "type": "string" },
+    "hashId": {
+      "type": "string",
+      "description": "Unique content hash (unique index)"
+    },
+    "content": {
+      "type": "object",
+      "description": "Worker-built payload stored on upsert",
+      "properties": {
+        "markdownKey": { "type": "string" },
+        "conversionMethod": { "type": "string" },
+        "markdownChars": { "type": "integer", "minimum": 0 },
+        "topicGraph": {
+          "type": ["object", "null"],
+          "description": "Subjects / nodes / edges graph from topicable"
+        }
+      }
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}

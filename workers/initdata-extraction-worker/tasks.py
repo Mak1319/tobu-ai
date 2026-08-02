@@ -35,7 +35,7 @@ REDIS_DB = int(os.getenv("REDIS_DB", "0"))
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
 STREAM_RESULT_KEY = os.getenv(
     "STREAM_RESULT_KEY",
-    os.getenv("PUBSUB_RESULT_CHANNEL", "docling_results"),
+    os.getenv("PUBSUB_RESULT_CHANNEL", "docling_result"),
 )
 STREAM_MAXLEN = int(os.getenv("STREAM_MAXLEN", "10000"))
 

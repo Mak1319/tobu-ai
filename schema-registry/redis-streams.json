@@ -1,0 +1,34 @@
+{
+  "version": "1.0.0",
+  "description": "Canonical Redis list and stream names across imbbox2",
+  "lists": [
+    {
+      "name": "minio-events",
+      "env": ["REDIS_EVENT_KEY", "REDIS_EVENT_LIST", "REDIS_INPUT_STREAM"],
+      "producer": "MinIO notification (RPUSH)",
+      "consumer": "workers/topicable, workers/initdata-extraction-worker (BLPOP)",
+      "operation": "list",
+      "notes": "Canonical list key for object-created notifications"
+    }
+  ],
+  "streams": [
+    {
+      "name": "docling_result",
+      "env": ["STREAM_RESULT_KEY", "REDIS_OUTPUT_STREAM", "PUBSUB_RESULT_CHANNEL"],
+      "producer": "workers/topicable, workers/initdata-extraction-worker (XADD status only)",
+      "consumer": "tobu-ai-ui /api/worker-events (XREAD / XREVRANGE)",
+      "field": "payload",
+      "payloadSchema": "docling-result-event.json",
+      "maxlenEnv": "STREAM_MAXLEN"
+    },
+    {
+      "name": "quiz_agent_bus",
+      "env": ["QUIZ_AGENT_STREAM"],
+      "producer": "agents/quiz (XADD)",
+      "consumer": "agents/quiz + tobu-ai-ui /api/quiz-events (XREAD / XREADGROUP)",
+      "field": "payload",
+      "payloadSchema": "quiz-agent-event.json",
+      "maxlenEnv": "QUIZ_STREAM_MAXLEN"
+    }
+  ]
+}

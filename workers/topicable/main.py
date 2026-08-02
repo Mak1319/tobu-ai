@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import signal
 import sys
@@ -42,56 +43,25 @@ def process_job(
     graph_builder: TopicGraphBuilder,
     session_id: str | None,
     upload_key: str,
-    file_hash: str,
+    file_hash_hint: str | None,
 ) -> None:
+    """Process one upload.
+
+    Hash is always recomputed from object bytes (SHA-256) so MinIO keys and
+    the UI client hash stay aligned. Notification eTag fallbacks are only a hint.
+    """
     job_started = time.perf_counter()
     upload_key = unquote_plus(upload_key)
     log.info(
-        "▶ job start session=%s uploadKey=%s fileHash=%s",
+        "▶ job start session=%s uploadKey=%s hashHint=%s",
         session_id,
         upload_key,
-        file_hash,
+        file_hash_hint,
     )
 
-    # --- step 1: cache lookup ---
-    log.debug("step 1/6: looking up hashContentMap for hashId=%s", file_hash)
-    t0 = time.perf_counter()
-    cached = hash_store.find_by_hash(file_hash)
-    log.debug("hash lookup done in %.3fs cached=%s", time.perf_counter() - t0, bool(cached))
-    if cached:
-        log.info(
-            "cache HIT hashId=%s — skipping download/convert/LLM",
-            file_hash,
-        )
-        log.debug(
-            "cached keys=%s",
-            list((cached.get("content") or {}).keys())
-            if isinstance(cached.get("content"), dict)
-            else type(cached.get("content")).__name__,
-        )
-        redis_io.publish(
-            {
-                "sessionId": session_id,
-                "uploadKey": upload_key,
-                "fileHash": file_hash,
-                "status": "success",
-                "cached": True,
-                "mdKey": f"{file_hash}.md",
-                "content": cached.get("content"),
-            }
-        )
-        log.info(
-            "✔ job done (cached) in %.3fs hash=%s",
-            time.perf_counter() - job_started,
-            file_hash,
-        )
-        return
-
-    log.info("cache MISS hashId=%s — processing document", file_hash)
-
-    # --- step 2: download ---
+    # --- step 1: download ---
     log.debug(
-        "step 2/6: downloading s3://%s/%s",
+        "step 1/6: downloading s3://%s/%s",
         settings.uploaded_bucket,
         upload_key,
     )
@@ -105,16 +75,94 @@ def process_job(
     )
     if not source:
         log.error("empty object for uploadKey=%s", upload_key)
-        redis_io.publish(
-            {
-                "sessionId": session_id,
-                "uploadKey": upload_key,
-                "fileHash": file_hash,
-                "status": "error",
-                "error": "empty object",
-            }
+        redis_io.publish_status(
+            session_id=session_id,
+            upload_key=upload_key,
+            file_hash=file_hash_hint,
+            status="error",
+            error="empty object",
         )
         return
+
+    # Authoritative content hash (matches browser WebCrypto SHA-256 hex).
+    file_hash = hashlib.sha256(source).hexdigest()
+    md_key = f"{file_hash}.md"
+    if file_hash_hint and file_hash_hint.lower() != file_hash:
+        log.warning(
+            "hash hint mismatch hint=%s computed=%s — using computed SHA-256",
+            file_hash_hint,
+            file_hash,
+        )
+
+    # --- step 2: cache lookup ---
+    log.debug("step 2/6: looking up hashContentMap for hashId=%s", file_hash)
+    t0 = time.perf_counter()
+    cached = hash_store.find_by_hash(file_hash)
+    log.debug("hash lookup done in %.3fs cached=%s", time.perf_counter() - t0, bool(cached))
+    if cached:
+        content = cached.get("content") if isinstance(cached.get("content"), dict) else {}
+        cached_md_key = str(content.get("markdownKey") or md_key)
+        if store.exists(cached_md_key):
+            log.info(
+                "cache HIT hashId=%s md=%s — skipping convert/LLM",
+                file_hash,
+                cached_md_key,
+            )
+            redis_io.publish_status(
+                session_id=session_id,
+                upload_key=upload_key,
+                file_hash=file_hash,
+                status="skipped",
+                cached=True,
+                md_key=cached_md_key,
+            )
+            log.info(
+                "✔ job done (cached) in %.3fs hash=%s",
+                time.perf_counter() - job_started,
+                file_hash,
+            )
+            return
+
+        # Mongo has graph metadata but processed markdown object is missing —
+        # rebuild markdown only and keep the cached topic graph.
+        log.warning(
+            "cache HIT hashId=%s but s3://%s/%s missing — regenerating markdown",
+            file_hash,
+            settings.processed_bucket,
+            cached_md_key,
+        )
+        filename = Path(upload_key).name
+        content_type = metadata.get("content-type") or metadata.get("content_type")
+        markdown, method = to_markdown(
+            source,
+            filename,
+            content_type,
+            force_docling=settings.force_docling,
+        )
+        store.upload_markdown(cached_md_key, markdown)
+        content = {
+            **content,
+            "markdownKey": cached_md_key,
+            "conversionMethod": method,
+            "markdownChars": len(markdown),
+        }
+        hash_store.upsert(file_hash, content)
+        redis_io.publish_status(
+            session_id=session_id,
+            upload_key=upload_key,
+            file_hash=file_hash,
+            status="skipped",
+            cached=True,
+            md_key=cached_md_key,
+        )
+        log.info(
+            "✔ job done (cached+restored md) in %.3fs hash=%s",
+            time.perf_counter() - job_started,
+            file_hash,
+        )
+        return
+
+    log.info("cache MISS hashId=%s — processing document", file_hash)
 
     # --- step 3: convert ---
     filename = Path(upload_key).name
@@ -141,7 +189,6 @@ def process_job(
     log.debug("markdown preview: %s", _preview(markdown))
 
     # --- step 4: upload processed markdown ---
-    md_key = f"{file_hash}.md"
     log.debug(
         "step 4/6: uploading markdown to s3://%s/%s",
         settings.processed_bucket,
@@ -172,7 +219,7 @@ def process_job(
             len(topic_graph.get("edges") or []),
         )
 
-    content: dict[str, Any] = {
+    content = {
         "markdownKey": md_key,
         "conversionMethod": method,
         "markdownChars": len(markdown),
@@ -180,30 +227,24 @@ def process_job(
     }
 
     # --- step 6: persist + notify ---
-    if topic_graph is not None:
-        log.debug("step 6/6: storing content in hashContentMap hashId=%s", file_hash)
-        hash_store.upsert(file_hash, content)
-        status = "success"
-    else:
-        status = "partial"
+    # Always persist markdown pointer; topicGraph may be null on partial.
+    log.debug("step 6/6: storing content in hashContentMap hashId=%s", file_hash)
+    hash_store.upsert(file_hash, content)
+    status = "success" if topic_graph is not None else "partial"
+    if topic_graph is None:
         log.warning(
-            "step 6/6: model/syllabus failed — skipping Mongo store, publishing partial status hash=%s",
+            "topic graph missing — stored markdown only hash=%s",
             file_hash,
         )
 
     log.debug("publishing status=%s to output stream", status)
-    redis_io.publish(
-        {
-            "sessionId": session_id,
-            "uploadKey": upload_key,
-            "fileHash": file_hash,
-            "status": status,
-            "cached": False,
-            "mdKey": md_key,
-            "conversionMethod": method,
-            "content": content if topic_graph is not None else None,
-            "topicGraphReady": topic_graph is not None,
-        }
+    redis_io.publish_status(
+        session_id=session_id,
+        upload_key=upload_key,
+        file_hash=file_hash,
+        status=status,
+        cached=False,
+        md_key=md_key,
     )
     log.info(
         "✔ job done status=%s in %.3fs hash=%s method=%s",
@@ -304,20 +345,17 @@ def run(settings: Settings) -> None:
                 file_hash,
             )
             try:
-                if not upload_key or not file_hash:
+                if not upload_key:
                     log.error(
-                        "invalid event missing fields uploadKey=%s fileHash=%s",
-                        upload_key,
+                        "invalid event missing uploadKey hash=%s",
                         file_hash,
                     )
-                    redis_io.publish(
-                        {
-                            "sessionId": session_id,
-                            "uploadKey": upload_key,
-                            "fileHash": file_hash,
-                            "status": "error",
-                            "error": "missing uploadKey or fileHash",
-                        }
+                    redis_io.publish_status(
+                        session_id=session_id,
+                        upload_key=upload_key,
+                        file_hash=file_hash,
+                        status="error",
+                        error="missing uploadKey",
                     )
                 else:
                     process_job(
@@ -332,14 +370,12 @@ def run(settings: Settings) -> None:
                     )
             except Exception:
                 log.exception("job failed uploadKey=%s fileHash=%s", upload_key, file_hash)
-                redis_io.publish(
-                    {
-                        "sessionId": session_id,
-                        "uploadKey": upload_key,
-                        "fileHash": file_hash,
-                        "status": "error",
-                        "error": "unhandled exception — see worker logs",
-                    }
+                redis_io.publish_status(
+                    session_id=session_id,
+                    upload_key=upload_key,
+                    file_hash=file_hash,
+                    status="error",
+                    error="unhandled exception — see worker logs",
                 )
     finally:
         log.debug("closing clients…")

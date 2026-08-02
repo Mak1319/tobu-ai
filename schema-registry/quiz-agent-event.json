@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://imbbox2.local/schema-registry/quiz-agent-event.json",
+  "title": "QuizAgentEvent",
+  "description": "JSON body inside Redis stream field `payload` on QUIZ_AGENT_STREAM (quiz_agent_bus). Source: agents/quiz/shared/redis_bus.py",
+  "type": "object",
+  "required": ["chatId", "from", "to", "type", "correlationId", "payload"],
+  "additionalProperties": false,
+  "properties": {
+    "chatId": { "type": "string" },
+    "from": { "type": "string" },
+    "to": { "type": "string" },
+    "type": {
+      "type": "string",
+      "description": "qg_start | qg_feedback | question_ready | qg_done | aa_analyze | score_ready | status"
+    },
+    "correlationId": { "type": "string", "format": "uuid" },
+    "payload": { "type": "object" },
+    "ts": { "type": "number" }
+  }
+}

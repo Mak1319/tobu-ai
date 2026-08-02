@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://imbbox2.local/schema-registry/question-item.json",
+  "title": "QuestionItem",
+  "description": "Quiz question payload (message model, not a Mongo collection). Source: agents/quiz/shared/models.py",
+  "type": "object",
+  "required": ["question", "correct_answer", "topic_id"],
+  "additionalProperties": false,
+  "properties": {
+    "question": { "type": "string" },
+    "correct_answer": { "type": "string" },
+    "topic_id": { "type": "string" },
+    "difficulty": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5,
+      "default": 1
+    }
+  }
+}

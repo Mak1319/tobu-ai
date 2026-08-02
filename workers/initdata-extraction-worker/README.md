@@ -30,8 +30,8 @@ repository root `.env`; values in `worker/.env` take precedence.
 | `REDIS_PORT`            | `6379`                  |
 | `REDIS_DB`              | `0`                     |
 | `REDIS_PASSWORD`        | empty                   |
-| `REDIS_EVENT_KEY`       | `minio-events-queue`    |
-| `STREAM_RESULT_KEY`     | `docling_results`       |
+| `REDIS_EVENT_KEY`       | `minio-events`          |
+| `STREAM_RESULT_KEY`     | `docling_result`        |
 | `STREAM_MAXLEN`         | `10000`                 |
 | `MINIO_ENDPOINT`        | `http://localhost:9000` |
 | `MINIO_ROOT_USER`       | `minioadmin`            |
@@ -63,7 +63,7 @@ python main.py
 Read recent result events from the stream:
 
 ```bash
-redis-cli -a "$REDIS_PASSWORD" XREVRANGE docling_results + - COUNT 10
+redis-cli -a "$REDIS_PASSWORD" XREVRANGE docling_result + - COUNT 10
 ```
 
 The notification setup must push MinIO object-created events to the same Redis

@@ -10,7 +10,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 _WORKER_DIR = Path(__file__).resolve().parent
+_REPO_ROOT = _WORKER_DIR.parent.parent
 load_dotenv(_WORKER_DIR / ".env")
+load_dotenv(_REPO_ROOT / ".env.all")
+load_dotenv(_REPO_ROOT / ".env")
 
 
 @dataclass(frozen=True)
@@ -58,13 +61,17 @@ def build_settings(argv: list[str] | None = None) -> Settings:
         "--redis-event-list",
         default=_env(
             "REDIS_EVENT_LIST",
-            _env("REDIS_INPUT_STREAM", "minio-events"),
+            _env("REDIS_EVENT_KEY", _env("REDIS_INPUT_STREAM", "minio-events")),
         ),
-        help="Redis list MinIO RPUSHes into (consumed with BLPOP)",
+        help="Redis list MinIO RPUSHes into (consumed with BLPOP); canonical name minio-events",
     )
     parser.add_argument(
         "--redis-output-stream",
-        default=_env("REDIS_OUTPUT_STREAM", "docling_result"),
+        default=_env(
+            "REDIS_OUTPUT_STREAM",
+            _env("STREAM_RESULT_KEY", "docling_result"),
+        ),
+        help="Redis stream for status events (XADD); canonical name docling_result",
     )
     parser.add_argument(
         "--stream-maxlen",

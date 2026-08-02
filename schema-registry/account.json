@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://imbbox2.local/schema-registry/account.json",
+  "title": "Account",
+  "description": "Linked auth provider for a user. Source: tobu-ai-ui/lib/db/models/Account.ts",
+  "type": "object",
+  "required": ["userId", "provider"],
+  "additionalProperties": false,
+  "properties": {
+    "_id": { "type": "string" },
+    "userId": { "type": "string", "description": "ObjectId ref to User" },
+    "provider": {
+      "type": "string",
+      "enum": ["email", "google", "apple", "github"]
+    },
+    "providerAccountId": {
+      "type": "string",
+      "description": "Provider-side user id (OAuth)"
+    },
+    "passwordHash": {
+      "type": "string",
+      "description": "Set when provider === email"
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}

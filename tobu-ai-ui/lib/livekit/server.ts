@@ -25,8 +25,11 @@ export interface LiveKitEnv {
 }
 
 export function getLiveKitEnv(): LiveKitEnv {
+  // Browser / TokenSource must dial the host-published Docker LiveKit
+  // (ws://localhost:7880), not the compose-internal hostname (ws://livekit:7880).
+  const publicUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL?.trim()
   return {
-    url: readRequired("LIVEKIT_URL"),
+    url: publicUrl && publicUrl.length > 0 ? publicUrl : readRequired("LIVEKIT_URL"),
     apiKey: readRequired("LIVEKIT_API_KEY"),
     apiSecret: readRequired("LIVEKIT_API_SECRET"),
   }

@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://imbbox2.local/schema-registry/user.json",
+  "title": "User",
+  "description": "Tobu AI user document. Source: tobu-ai-ui/lib/db/models/User.ts",
+  "type": "object",
+  "required": ["name", "email", "emailNormalized"],
+  "additionalProperties": false,
+  "properties": {
+    "_id": { "type": "string", "description": "MongoDB ObjectId as hex string" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "email": { "type": "string", "format": "email" },
+    "emailNormalized": {
+      "type": "string",
+      "description": "Lowercased email used for the unique index"
+    },
+    "verified": { "type": "boolean", "default": false },
+    "image": { "type": "string" },
+    "twoFactor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "secret": { "type": "string", "description": "Base32 TOTP secret" },
+        "enabled": { "type": "boolean", "default": false },
+        "verifiedAt": { "type": "string", "format": "date-time" },
+        "recoveryCodes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "SHA-256 hashed recovery codes"
+        }
+      }
+    },
+    "sessions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "ObjectId refs to Session"
+    },
+    "preferences": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "ObjectId refs to Preferences"
+    },
+    "accounts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "ObjectId refs to Account"
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}

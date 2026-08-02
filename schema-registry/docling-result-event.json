@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://imbbox2.local/schema-registry/docling-result-event.json",
+  "title": "DoclingResultEvent",
+  "description": "Small status JSON inside Redis stream field `payload` on STREAM_RESULT_KEY (docling_result). Full topic/markdown content is stored in Mongo hashContentMap only — not on this stream. UI: tobu-ai-ui/lib/redis.ts. Producer: workers/topicable publish_status.",
+  "type": "object",
+  "required": ["status"],
+  "properties": {
+    "session_id": { "type": ["string", "null"], "description": "initdata / UI shape" },
+    "sessionId": { "type": ["string", "null"], "description": "topicable shape" },
+    "status": {
+      "type": "string",
+      "description": "processed | skipped | error (initdata) or success | partial | cached (topicable)"
+    },
+    "file_key": { "type": "string", "description": "initdata / UI shape" },
+    "uploadKey": { "type": "string", "description": "topicable shape" },
+    "md_key": { "type": "string" },
+    "mdKey": { "type": "string" },
+    "sha256": { "type": "string" },
+    "fileHash": { "type": "string" },
+    "markdown_chars": { "type": "integer" },
+    "error": { "type": "string" },
+    "cached": { "type": "boolean" },
+    "conversionMethod": { "type": "string" },
+    "topicGraphReady": { "type": "boolean" },
+    "content": { "type": ["object", "null"] }
+  }
+}

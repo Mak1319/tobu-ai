@@ -1,0 +1,97 @@
+{
+  "version": "1.0.0",
+  "description": "Catalog of all registered schemas in imbbox2. JSON Schema files live alongside this index.",
+  "schemas": [
+    {
+      "id": "user",
+      "title": "User",
+      "file": "user.json",
+      "source": "tobu-ai-ui/lib/db/models/User.ts",
+      "storage": "mongodb",
+      "collection": "users"
+    },
+    {
+      "id": "account",
+      "title": "Account",
+      "file": "account.json",
+      "source": "tobu-ai-ui/lib/db/models/Account.ts",
+      "storage": "mongodb",
+      "collection": "accounts"
+    },
+    {
+      "id": "session",
+      "title": "Session",
+      "file": "session.json",
+      "source": "tobu-ai-ui/lib/db/models/Session.ts",
+      "storage": "mongodb",
+      "collection": "sessions"
+    },
+    {
+      "id": "preferences",
+      "title": "Preferences",
+      "file": "preferences.json",
+      "source": "tobu-ai-ui/lib/db/models/Preferences.ts",
+      "storage": "mongodb",
+      "collection": "preferences"
+    },
+    {
+      "id": "uploaded-file",
+      "title": "UploadedFile",
+      "file": "uploaded-file.json",
+      "source": "tobu-ai-ui/lib/db/models/UploadedFile.ts",
+      "storage": "mongodb",
+      "collection": "uploadedfiles"
+    },
+    {
+      "id": "email-token",
+      "title": "EmailToken",
+      "file": "email-token.json",
+      "source": "tobu-ai-ui/lib/auth/email-token.ts",
+      "storage": "mongodb",
+      "collection": "emailtokens"
+    },
+    {
+      "id": "hash-content-map",
+      "title": "HashContentMap",
+      "file": "hash-content-map.json",
+      "source": "workers/topicable/mongo.py",
+      "storage": "mongodb",
+      "collection": "hashContentMap"
+    },
+    {
+      "id": "question-item",
+      "title": "QuestionItem",
+      "file": "question-item.json",
+      "source": "agents/quiz/shared/models.py",
+      "storage": "message"
+    },
+    {
+      "id": "score-result",
+      "title": "ScoreResult",
+      "file": "score-result.json",
+      "source": "agents/quiz/shared/models.py",
+      "storage": "message"
+    },
+    {
+      "id": "docling-result-event",
+      "title": "DoclingResultEvent",
+      "file": "docling-result-event.json",
+      "source": "tobu-ai-ui/lib/redis.ts + workers/*/publish",
+      "storage": "redis"
+    },
+    {
+      "id": "quiz-agent-event",
+      "title": "QuizAgentEvent",
+      "file": "quiz-agent-event.json",
+      "source": "agents/quiz/shared/redis_bus.py",
+      "storage": "redis"
+    },
+    {
+      "id": "redis-streams",
+      "title": "RedisStreamsRegistry",
+      "file": "redis-streams.json",
+      "source": "canonical names across repo",
+      "storage": "redis"
+    }
+  ]
+}

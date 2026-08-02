@@ -6,23 +6,18 @@ import { connectToDatabase, UploadedFile } from "@/lib/db/models";
 
 export const runtime = "nodejs";
 
-// Allowed content types for uploaded documents. Mirrors the picker on the
-// client so server-side validation is the source of truth.
 const ALLOWED_MIME_TYPES = new Set<string>([
     "image/png",
     "image/jpeg",
     "image/jpg",
     "image/webp",
-    "image/gif",
     "application/pdf",
 ]);
 
-// 10 MB hard cap, matching the UI hint in file-upload-05.tsx.
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
-
-// chatId is used as a key prefix, so reject anything that isn't a safe
-// slug to prevent directory-traversal style keys like "../../etc".
 const CHAT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+/** Client-computed SHA-256 hex (Web Crypto). */
+const CONTENT_HASH_RE = /^[a-f0-9]{64}$/i;
 
 function badRequest(error: string) {
     return NextResponse.json({ ok: false, error }, { status: 400 });
@@ -38,6 +33,7 @@ export async function POST(request: Request) {
 
     const chatId = formData.get("chatId");
     const fileEntry = formData.get("file");
+    const contentHashRaw = formData.get("contentHash");
 
     if (typeof chatId !== "string" || !CHAT_ID_RE.test(chatId)) {
         return badRequest("Missing or invalid chatId");
@@ -46,6 +42,17 @@ export async function POST(request: Request) {
     if (!(fileEntry instanceof File)) {
         return badRequest("Missing file");
     }
+
+    if (
+        typeof contentHashRaw !== "string" ||
+        !CONTENT_HASH_RE.test(contentHashRaw)
+    ) {
+        return badRequest(
+            "Missing or invalid contentHash (client must send SHA-256 hex)",
+        );
+    }
+    const contentHash = contentHashRaw.toLowerCase();
+    const mdKey = `${contentHash}.md`;
 
     const contentType = fileEntry.type;
     if (!ALLOWED_MIME_TYPES.has(contentType)) {
@@ -67,18 +74,17 @@ export async function POST(request: Request) {
 
     try {
         await ensureBucket();
-        // The stdlib ReadableStream's type and @types/node's ReadableStream type
-        // disagree on what a "ReadableStream" is. The runtime call is correct;
-        // the cast bridges the type-only mismatch.
         const stream = Readable.fromWeb(
             fileEntry.stream() as unknown as NodeReadableStream<Uint8Array>,
         );
-        // userMetadata becomes x-amz-meta-* on the object. The docling bridge
-        // reads session_id / chatId from event metadata (falls back to key prefix).
+        // Client hash is trusted as the content id; attach as MinIO metadata
+        // so topicable uses processed-documents/<sha256>.md
         await minioClient.putObject(BUCKET, key, stream, fileEntry.size, {
             "Content-Type": contentType,
             "X-Amz-Meta-Session-Id": chatId,
             "X-Amz-Meta-Chat-Id": chatId,
+            "X-Amz-Meta-File-Hash": contentHash,
+            "X-Amz-Meta-Hash-Id": contentHash,
         });
     } catch (err) {
         const message =
@@ -89,10 +95,6 @@ export async function POST(request: Request) {
         );
     }
 
-    // MinIO succeeded. Now persist the metadata so the upload is queryable.
-    // Order matters: we never write a dangling row if MinIO failed above,
-    // and we surface a 500 if the metadata write fails so the operator can
-    // reconcile the orphan object rather than discovering the mismatch later.
     let recordId: string;
     try {
         await connectToDatabase();
@@ -104,6 +106,8 @@ export async function POST(request: Request) {
             contentType,
             size: fileEntry.size,
             uploadedAt,
+            contentHash,
+            processingStatus: "pending",
         });
         recordId = record._id.toString();
     } catch (err) {
@@ -127,6 +131,8 @@ export async function POST(request: Request) {
             filename: fileEntry.name,
             size: fileEntry.size,
             contentType,
+            contentHash,
+            mdKey,
             uploadedAt: uploadedAt.toISOString(),
         },
         { status: 200 },

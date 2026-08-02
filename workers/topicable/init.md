@@ -62,6 +62,6 @@ xadd
 15. after ( 13/14 ) it will upload the status to redis stream with @xadd
 
 ```
-redis notificaiton stream to minio= "minio-events"
-redis notification stream to output = "docling_result"
+redis notification list from minio = "minio-events"
+redis result stream to UI = "docling_result"
 ```

@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://imbbox2.local/schema-registry/uploaded-file.json",
+  "title": "UploadedFile",
+  "description": "MinIO upload metadata + processing status. Source: tobu-ai-ui/lib/db/models/UploadedFile.ts",
+  "type": "object",
+  "required": [
+    "chatId",
+    "bucket",
+    "key",
+    "filename",
+    "contentType",
+    "size",
+    "processingStatus"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "_id": { "type": "string" },
+    "chatId": { "type": "string" },
+    "userId": { "type": "string", "description": "ObjectId ref to User (optional until auth-gated upload)" },
+    "bucket": { "type": "string" },
+    "key": { "type": "string", "description": "Unique MinIO object key" },
+    "filename": { "type": "string" },
+    "contentType": { "type": "string" },
+    "size": { "type": "number", "minimum": 0 },
+    "uploadedAt": { "type": "string", "format": "date-time" },
+    "processingStatus": {
+      "type": "string",
+      "enum": ["pending", "processing", "ready", "failed"],
+      "default": "pending"
+    },
+    "processedAt": { "type": "string", "format": "date-time" },
+    "processedKey": {
+      "type": "string",
+      "description": "MinIO key of .md in processed-documents"
+    },
+    "contentHash": {
+      "type": "string",
+      "description": "SHA-256 of bytes, hex"
+    },
+    "processingError": { "type": "string" },
+    "flagged": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when fill-vs-bitmap safeguard detects hidden text"
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}

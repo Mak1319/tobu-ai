@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://imbbox2.local/schema-registry/score-result.json",
+  "title": "ScoreResult",
+  "description": "Answer analyzer score payload (message model). Source: agents/quiz/shared/models.py",
+  "type": "object",
+  "required": ["score_delta", "is_correct"],
+  "additionalProperties": false,
+  "properties": {
+    "score_delta": { "type": "integer" },
+    "is_correct": { "type": "boolean" },
+    "rationale": { "type": "string", "default": "" }
+  }
+}

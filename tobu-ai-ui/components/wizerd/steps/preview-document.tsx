@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { MarkdownPreview } from "./markdown-preview";
 import type { NavigationPayload, NavigationResult } from "@stepperize/react";
+import { readWizardHash, writeWizardHash } from "@/lib/wizard/storage";
 
 interface PreviewDocumentPageProps {
     next: (
@@ -15,23 +16,11 @@ interface PreviewDocumentPageProps {
     ) => Promise<NavigationResult>;
 }
 
-/** Mirrors the JSON the document-worker writes to the `docling_results` stream. */
-type DoclingResultEvent = {
-    session_id: string | null;
-    status: "processed" | "skipped" | "error" | string;
-    file_key: string;
-    md_key?: string;
-    sha256?: string;
-    markdown_chars?: number;
-    error?: string;
-};
-
-type PreviewPhase =
-    "connecting" | "waiting" | "loading" | "ready" | "error" | "disconnected";
+type PreviewPhase = "resolving" | "loading" | "ready" | "error";
 
 /**
- * Stream markdown body from `/api/processed/[mdKey]` (MinIO → Next → browser).
- * Appends chunks as they arrive so large docs paint progressively.
+ * Stream markdown from `/api/processed/[mdKey]` (MinIO processed-documents).
+ * Called after upload step confirmed topicable finished via Redis stream.
  */
 async function streamMarkdown(
     mdKey: string,
@@ -52,56 +41,83 @@ async function streamMarkdown(
     }
 
     if (!res.body) {
-        const text = await res.text();
-        onChunk(text);
+        onChunk(await res.text());
         return;
     }
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
-
     while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         onChunk(decoder.decode(value, { stream: true }));
     }
-    // Flush any trailing multibyte sequence.
     const tail = decoder.decode();
     if (tail) onChunk(tail);
+}
+
+async function resolveFileHash(chatId: string): Promise<{
+    fileHash: string;
+    mdKey: string;
+} | null> {
+    const stored = readWizardHash(chatId);
+    if (stored?.fileHash) {
+        return {
+            fileHash: stored.fileHash,
+            mdKey: stored.mdKey ?? `${stored.fileHash}.md`,
+        };
+    }
+
+    const res = await fetch(`/api/uploads/${encodeURIComponent(chatId)}/hash`);
+    const data = (await res.json().catch(() => null)) as
+        | { ok: true; contentHash: string; mdKey?: string | null }
+        | { ok: false }
+        | null;
+    if (!res.ok || !data || !data.ok) return null;
+
+    const mdKey = data.mdKey ?? `${data.contentHash}.md`;
+    writeWizardHash(chatId, { fileHash: data.contentHash, mdKey });
+    return { fileHash: data.contentHash, mdKey };
 }
 
 export default function PreviewDocument({ next }: PreviewDocumentPageProps) {
     const params = useParams();
     const chatId = params.chatId as string;
 
-    const [phase, setPhase] = useState<PreviewPhase>("connecting");
-    const [statusLabel, setStatusLabel] = useState("Connecting to worker…");
-    const [result, setResult] = useState<DoclingResultEvent | null>(null);
+    const [phase, setPhase] = useState<PreviewPhase>("resolving");
+    const [statusLabel, setStatusLabel] = useState("Loading processed document…");
+    const [mdKey, setMdKey] = useState<string | null>(null);
     const [markdown, setMarkdown] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!chatId) return;
 
-        const es = new EventSource(
-            `/api/worker-events/${encodeURIComponent(chatId)}`,
-        );
-        let closed = false;
-        let settled = false;
-        const seen = new Set<string>();
-        let fetchAbort: AbortController | null = null;
+        let cancelled = false;
+        const abort = new AbortController();
 
-        const close = () => {
-            if (closed) return;
-            closed = true;
-            es.close();
-            fetchAbort?.abort();
-        };
+        const run = async () => {
+            setPhase("resolving");
+            setStatusLabel("Resolving file hash…");
+            setError(null);
 
-        const loadMarkdown = async (mdKey: string) => {
-            fetchAbort?.abort();
-            fetchAbort = new AbortController();
-            const { signal } = fetchAbort;
+            const resolved = await resolveFileHash(chatId);
+            if (cancelled) return;
+
+            if (!resolved) {
+                setPhase("error");
+                setStatusLabel("Missing file hash");
+                setError(
+                    "No processed document hash. Go back and wait for upload processing to finish.",
+                );
+                return;
+            }
+
+            setMdKey(resolved.mdKey);
+            writeWizardHash(chatId, {
+                fileHash: resolved.fileHash,
+                mdKey: resolved.mdKey,
+            });
 
             setPhase("loading");
             setStatusLabel("Streaming markdown preview…");
@@ -109,20 +125,20 @@ export default function PreviewDocument({ next }: PreviewDocumentPageProps) {
 
             try {
                 let gotChunk = false;
-                await streamMarkdown(mdKey, signal, (chunk) => {
-                    if (signal.aborted) return;
+                await streamMarkdown(resolved.mdKey, abort.signal, (chunk) => {
+                    if (cancelled) return;
                     setMarkdown((prev) => (prev ?? "") + chunk);
                     if (!gotChunk) {
                         gotChunk = true;
                         setStatusLabel("Streaming document…");
                     }
                 });
-                if (signal.aborted) return;
+                if (cancelled || abort.signal.aborted) return;
                 setPhase("ready");
                 setStatusLabel("Document ready");
                 setError(null);
             } catch (err) {
-                if (signal.aborted) return;
+                if (cancelled || abort.signal.aborted) return;
                 setPhase("error");
                 setStatusLabel("Preview failed");
                 setError(
@@ -130,91 +146,22 @@ export default function PreviewDocument({ next }: PreviewDocumentPageProps) {
                         ? err.message
                         : "Could not load processed markdown",
                 );
+                // Surface which key we asked for so hash mismatches are obvious.
+                if (resolved.mdKey) {
+                    setStatusLabel(`Missing ${resolved.mdKey}`);
+                }
             }
         };
 
-        es.addEventListener("connected", () => {
-            if (settled) return;
-            setPhase("waiting");
-            setStatusLabel("Waiting for document worker…");
-            setError(null);
-        });
-
-        es.addEventListener("docling", (ev) => {
-            try {
-                const data = JSON.parse(ev.data) as DoclingResultEvent;
-                const dedupeKey = `${data.file_key}:${data.status}`;
-                if (seen.has(dedupeKey)) return;
-                seen.add(dedupeKey);
-                setResult(data);
-
-                if (data.status === "error") {
-                    settled = true;
-                    setPhase("error");
-                    setStatusLabel("Processing failed");
-                    setError(data.error ?? "Worker reported an error");
-                    return;
-                }
-
-                // processed | skipped — markdown is ready in processed-documents.
-                settled = true;
-                setStatusLabel(
-                    data.status === "skipped"
-                        ? "Already processed (cached)"
-                        : "Document processed",
-                );
-                setError(null);
-
-                if (!data.md_key) {
-                    setPhase("error");
-                    setStatusLabel("Missing markdown key");
-                    setError("Worker finished without an md_key");
-                    return;
-                }
-
-                void loadMarkdown(data.md_key);
-            } catch {
-                setPhase("error");
-                setStatusLabel("Bad event payload");
-                setError("Could not parse worker event");
-            }
-        });
-
-        es.addEventListener("bridge-error", (ev) => {
-            const messageEvent = ev as MessageEvent<string>;
-            try {
-                const data = JSON.parse(messageEvent.data) as {
-                    error?: string;
-                };
-                setError(data.error ?? "SSE bridge error");
-            } catch {
-                setError(messageEvent.data || "SSE bridge error");
-            }
-            setPhase("error");
-            setStatusLabel("Stream error");
-        });
-
-        es.onerror = () => {
-            if (settled) return;
-            if (es.readyState === EventSource.CLOSED) {
-                setPhase("disconnected");
-                setStatusLabel("Disconnected from worker stream");
-                close();
-            } else {
-                setPhase("connecting");
-                setStatusLabel("Reconnecting…");
-            }
-        };
-
+        void run();
         return () => {
-            close();
+            cancelled = true;
+            abort.abort();
         };
     }, [chatId]);
 
     const showSkeleton =
-        (phase === "connecting" ||
-            phase === "waiting" ||
-            phase === "loading") &&
+        (phase === "resolving" || phase === "loading") &&
         !(markdown && markdown.length > 0);
     const showMarkdown =
         markdown != null &&
@@ -253,9 +200,9 @@ export default function PreviewDocument({ next }: PreviewDocumentPageProps) {
                         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                             Document preview
                         </span>
-                        {result?.md_key && (
+                        {mdKey && (
                             <span className="truncate font-mono text-xs text-muted-foreground">
-                                {result.md_key}
+                                {mdKey}
                             </span>
                         )}
                     </div>
@@ -274,13 +221,6 @@ export default function PreviewDocument({ next }: PreviewDocumentPageProps) {
                                 </p>
                             )}
 
-                            {phase === "disconnected" && (
-                                <p className="text-sm text-muted-foreground">
-                                    Lost the worker event stream. Refresh or
-                                    re-upload to try again.
-                                </p>
-                            )}
-
                             {showMarkdown && (
                                 <MarkdownPreview content={markdown} />
                             )}
@@ -289,8 +229,8 @@ export default function PreviewDocument({ next }: PreviewDocumentPageProps) {
                 </div>
 
                 <div className="flex justify-end">
-                    <Button onClick={() => next()} disabled={!canContinue}>
-                        Next
+                    <Button onClick={() => void next()} disabled={!canContinue}>
+                        Next — select topics
                     </Button>
                 </div>
             </div>

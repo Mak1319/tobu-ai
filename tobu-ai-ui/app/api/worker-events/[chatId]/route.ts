@@ -25,14 +25,18 @@ function sseFrame(event: string, data: unknown, id?: string): Uint8Array {
 }
 
 /**
- * SSE bridge: browser EventSource → Redis stream `docling_results`.
+ * SSE bridge: browser EventSource → Redis stream `docling_result`
+ * (env STREAM_RESULT_KEY / REDIS_OUTPUT_STREAM).
  *
- * The document-worker XADDs:
- *   { session_id, status, file_key, md_key?, sha256?, markdown_chars?, error? }
+ * Workers XADD a small JSON status payload only (success | error | skipped | partial).
+ * Full topic/markdown data lives in Mongo hashContentMap, not on the stream.
  *
  * On connect we replay recent matching history (or resume from Last-Event-ID),
- * then blocking XREAD for live events. Only entries whose `session_id`
- * matches the chatId path param are forwarded.
+ * then blocking XREAD for live events. Only entries whose normalized
+ * `session_id` equals the chatId path param are forwarded as `event: docling`.
+ *
+ * Client (upload wizard) should treat silence for 5 minutes as a timeout.
+ * This route's maxDuration is also 300s so the SSE ends after ~5 minutes.
  */
 export async function GET(
     request: Request,

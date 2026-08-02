@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://imbbox2.local/schema-registry/email-token.json",
+  "title": "EmailToken",
+  "description": "Single-use verify-email / reset-password token. Source: tobu-ai-ui/lib/auth/email-token.ts",
+  "type": "object",
+  "required": ["userId", "purpose", "tokenHash", "expiresAt"],
+  "additionalProperties": false,
+  "properties": {
+    "_id": { "type": "string" },
+    "userId": { "type": "string", "description": "ObjectId ref to User" },
+    "purpose": {
+      "type": "string",
+      "enum": ["verify-email", "reset-password"]
+    },
+    "tokenHash": {
+      "type": "string",
+      "description": "SHA-256 of the raw token"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Mongo TTL index expireAfterSeconds: 0"
+    },
+    "usedAt": { "type": "string", "format": "date-time" },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

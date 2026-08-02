@@ -4,10 +4,16 @@ import { FileText, Image as ImageIcon, Upload, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { writeWizardHash } from "@/lib/wizard/storage";
+import { sha256Hex } from "@/lib/wizard/hash";
 
 interface FileUpload05Props {
   chatId: string;
-  onUploadComplete?: () => void;
+  disabled?: boolean;
+  onUploadComplete?: (info: {
+    contentHash: string;
+    mdKey: string;
+  }) => void;
 }
 
 const ACCEPTED_MIME_TYPES = [
@@ -35,7 +41,11 @@ function isImageFile(file: File): boolean {
   return file.type.startsWith("image/");
 }
 
-export default function FileUpload05({ chatId, onUploadComplete }: FileUpload05Props) {
+export default function FileUpload05({
+  chatId,
+  disabled = false,
+  onUploadComplete,
+}: FileUpload05Props) {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -110,17 +120,31 @@ export default function FileUpload05({ chatId, onUploadComplete }: FileUpload05P
     setStatus("uploading");
     setError(null);
 
-    const formData = new FormData();
-    formData.append("chatId", chatId);
-    formData.append("file", file);
-
     try {
+      // Hash on the client before upload — same digest the worker uses for
+      // processed-documents/<sha256>.md
+      const contentHash = await sha256Hex(file);
+      const mdKey = `${contentHash}.md`;
+
+      const formData = new FormData();
+      formData.append("chatId", chatId);
+      formData.append("file", file);
+      formData.append("contentHash", contentHash);
+
       const response = await fetch("/api/upload", {
         method: "POST",
         body: formData,
       });
       const data = (await response.json().catch(() => null)) as
-        | { ok: true; key: string; bucket: string; size: number; contentType: string }
+        | {
+            ok: true;
+            key: string;
+            bucket: string;
+            size: number;
+            contentType: string;
+            contentHash: string;
+            mdKey: string;
+          }
         | { ok: false; error: string }
         | null;
 
@@ -132,9 +156,17 @@ export default function FileUpload05({ chatId, onUploadComplete }: FileUpload05P
         return;
       }
 
+      writeWizardHash(chatId, {
+        fileHash: data.contentHash || contentHash,
+        mdKey: data.mdKey || mdKey,
+      });
+
       setStatus("success");
       if (onUploadComplete) {
-        onUploadComplete();
+        onUploadComplete({
+          contentHash: data.contentHash || contentHash,
+          mdKey: data.mdKey || mdKey,
+        });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Upload failed";
@@ -143,7 +175,7 @@ export default function FileUpload05({ chatId, onUploadComplete }: FileUpload05P
     }
   };
 
-  const isUploading = status === "uploading";
+  const isUploading = status === "uploading" || disabled;
   const statusLabel =
     status === "uploading"
       ? "Uploading…"

@@ -1,6 +1,7 @@
 node_modules
 .env
 .env*.local
+.env.all
 minio-storage/
 .venv
 data
@@ -16,3 +17,4 @@ test-worker
 worker/gliner-test
 /worker/gliner-train
 /workers/gliner-test
+.cursor

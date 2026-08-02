@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://imbbox2.local/schema-registry/session.json",
+  "title": "Session",
+  "description": "Hashed browser session token. Source: tobu-ai-ui/lib/db/models/Session.ts",
+  "type": "object",
+  "required": ["userId", "token", "expiresAt"],
+  "additionalProperties": false,
+  "properties": {
+    "_id": { "type": "string" },
+    "userId": { "type": "string", "description": "ObjectId ref to User" },
+    "token": {
+      "type": "string",
+      "description": "SHA-256 of random 32-byte session token"
+    },
+    "userAgent": { "type": "string" },
+    "ip": { "type": "string" },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Mongo TTL index expireAfterSeconds: 0"
+    },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

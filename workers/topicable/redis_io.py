@@ -1,4 +1,4 @@
-"""Redis list input (MinIO RPUSH) + stream output (XADD docling_result)."""
+"""Redis list input (MinIO RPUSH) + stream output (XADD docling_result status only)."""
 
 from __future__ import annotations
 
@@ -67,12 +67,39 @@ class RedisIO:
         log.debug("LLEN %s = %d", self.settings.redis_event_list, n)
         return n
 
-    def publish(self, payload: dict[str, Any]) -> str:
+    def publish_status(
+        self,
+        *,
+        session_id: str | None,
+        upload_key: str | None,
+        file_hash: str | None,
+        status: str,
+        cached: bool = False,
+        md_key: str | None = None,
+        error: str | None = None,
+    ) -> str:
+        """XADD a small status-only event (no topic graph / markdown body).
+
+        Full processed content lives in Mongo ``hashContentMap`` keyed by fileHash.
+        Status values: success | error | skipped | partial
+        """
+        payload: dict[str, Any] = {
+            "sessionId": session_id,
+            "uploadKey": upload_key,
+            "fileHash": file_hash,
+            "status": status,
+            "cached": cached,
+        }
+        if md_key:
+            payload["mdKey"] = md_key
+        if error:
+            payload["error"] = error
+
         body = json.dumps(payload)
         log.debug(
             "XADD stream=%s status=%s payload_bytes=%d",
             self.settings.redis_output_stream,
-            payload.get("status"),
+            status,
             len(body),
         )
         entry_id = self.client.xadd(
@@ -83,13 +110,25 @@ class RedisIO:
         )
         log.info(
             "→ xadd status=%s id=%s on %s session=%s hash=%s",
-            payload.get("status"),
+            status,
             entry_id,
             self.settings.redis_output_stream,
-            payload.get("sessionId"),
-            payload.get("fileHash"),
+            session_id,
+            file_hash,
         )
         return str(entry_id)
+
+    def publish(self, payload: dict[str, Any]) -> str:
+        """Publish status only — drops heavy fields like ``content`` / topicGraph."""
+        return self.publish_status(
+            session_id=payload.get("sessionId") or payload.get("session_id"),
+            upload_key=payload.get("uploadKey") or payload.get("file_key"),
+            file_hash=payload.get("fileHash") or payload.get("sha256"),
+            status=str(payload.get("status") or "error"),
+            cached=bool(payload.get("cached")),
+            md_key=payload.get("mdKey") or payload.get("md_key"),
+            error=payload.get("error"),
+        )
 
     def close(self) -> None:
         log.debug("closing redis client")

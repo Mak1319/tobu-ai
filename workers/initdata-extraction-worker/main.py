@@ -25,11 +25,13 @@ from botocore.exceptions import ClientError
 from docling.document_converter import DocumentConverter
 from dotenv import load_dotenv
 
-# Prefer worker/.env, while still allowing the repository root .env to be used
+# Prefer worker/.env, while still allowing the repository root .env / .env.all
 # when the worker is started from the project root.
 _WORKER_DIR = Path(__file__).resolve().parent
+_REPO_ROOT = _WORKER_DIR.parent.parent
 load_dotenv(_WORKER_DIR / ".env")
-load_dotenv(_WORKER_DIR.parent / ".env")
+load_dotenv(_REPO_ROOT / ".env.all")
+load_dotenv(_REPO_ROOT / ".env")
 
 
 logging.basicConfig(
@@ -43,10 +45,13 @@ REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 REDIS_DB = int(os.getenv("REDIS_DB", "0"))
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD") or None
-REDIS_EVENT_KEY = os.getenv("REDIS_EVENT_KEY", "minio-events-queue")
+REDIS_EVENT_KEY = os.getenv(
+    "REDIS_EVENT_KEY",
+    os.getenv("REDIS_EVENT_LIST", "minio-events"),
+)
 STREAM_RESULT_KEY = os.getenv(
     "STREAM_RESULT_KEY",
-    os.getenv("PUBSUB_RESULT_CHANNEL", "docling_results"),
+    os.getenv("PUBSUB_RESULT_CHANNEL", "docling_result"),
 )
 STREAM_MAXLEN = int(os.getenv("STREAM_MAXLEN", "10000"))
 

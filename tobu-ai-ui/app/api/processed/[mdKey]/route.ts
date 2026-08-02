@@ -9,7 +9,7 @@ const MD_KEY_RE = /^[a-f0-9]{64}\.md$/i;
 
 /**
  * Stream processed Docling markdown from the processed-documents bucket.
- * The preview step calls this after the Redis/SSE `docling` event provides `md_key`.
+ * Keys are `<sha256>.md` — the same content hash computed at upload time.
  */
 export async function GET(
     _request: Request,
@@ -49,9 +49,18 @@ export async function GET(
             err && typeof err === "object" && "code" in err
                 ? String((err as { code?: string }).code)
                 : "";
-        if (code === "NoSuchKey" || code === "NotFound") {
+        if (
+            code === "NoSuchKey" ||
+            code === "NotFound" ||
+            /not.?found/i.test(String(err))
+        ) {
             return NextResponse.json(
-                { ok: false, error: "Processed document not found" },
+                {
+                    ok: false,
+                    error: "Processed document not found",
+                    bucket: PROCESSED_BUCKET,
+                    mdKey,
+                },
                 { status: 404 },
             );
         }
